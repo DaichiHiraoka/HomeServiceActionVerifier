@@ -22,6 +22,9 @@ class MaskMethod(str, Enum):
     BACKGROUND_BLUR_WITH_ROI = "background_blur_with_roi"
     LOWER_BODY_ONLY = "lower_body_only"
     OBJECT_AREA_ONLY = "object_area_only"
+    HAND_OBJECT_ROI = "hand_object_roi"
+    FULL_FRAME_BLUR_EXCEPT_ROI = "full_frame_blur_except_roi"
+    TOKEN_ONLY = "token_only"
 
 
 class VLMBackend(str, Enum):
@@ -128,6 +131,88 @@ class EvaluationMetrics(BaseModel):
     average_num_selected_frames: float
     average_processing_time_sec: float
     num_videos: int
+    notes: str
+    output_dir: Path | None = None
+
+
+class WorkOrder(BaseModel):
+    scenario_id: str
+    task_name: str
+    authorized_zones: list[str]
+    forbidden_zones: list[str]
+    target_objects: list[str]
+    worker_owned_objects: list[str]
+    resident_private_objects: list[str]
+    allowed_actions: list[str]
+    forbidden_actions: list[str]
+    allowed_photo_targets: list[str] = Field(default_factory=list)
+    high_risk_objects: list[str] = Field(default_factory=list)
+
+
+class ZoneDefinition(BaseModel):
+    zone_id: str
+    type: str
+    bbox: tuple[int, int, int, int]
+
+    @model_validator(mode="after")
+    def validate_bbox(self) -> "ZoneDefinition":
+        x1, y1, x2, y2 = self.bbox
+        if x2 <= x1 or y2 <= y1:
+            msg = "ZoneDefinition bbox requires x2 > x1 and y2 > y1"
+            raise ValueError(msg)
+        return self
+
+
+class ZoneConfig(BaseModel):
+    video_width: int = Field(gt=0)
+    video_height: int = Field(gt=0)
+    zones: list[ZoneDefinition]
+
+
+class EventToken(BaseModel):
+    event_id: str
+    start_sec: float = Field(ge=0)
+    end_sec: float = Field(ge=0)
+    action: str
+    zone: str | None = None
+    object_class: str | None = None
+    object_owner: str | None = None
+    container_class: str | None = None
+    container_owner: str | None = None
+    target_object: str | None = None
+    task_stage: str | None = None
+    ground_truth_label: str | None = None
+    same_action_pair_id: str | None = None
+    notes: str | None = None
+
+    @model_validator(mode="after")
+    def validate_time_order(self) -> "EventToken":
+        if self.start_sec >= self.end_sec:
+            msg = "EventToken requires start_sec < end_sec"
+            raise ValueError(msg)
+        return self
+
+
+class DetectionResult(BaseModel):
+    event_id: str
+    method: str
+    predicted_label: str
+    suspicion_score: float = Field(ge=0.0, le=1.0)
+    reasons: list[str] = Field(default_factory=list)
+    evidence: dict[str, Any] = Field(default_factory=dict)
+
+
+class EventEvaluationMetrics(BaseModel):
+    accuracy: float
+    precision: float
+    recall: float
+    f1: float
+    roc_auc: float | None = None
+    average_precision: float | None = None
+    false_alarm_rate: float
+    num_events: int
+    num_positive_events: int
+    num_negative_events: int
     notes: str
     output_dir: Path | None = None
 

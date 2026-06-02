@@ -6,6 +6,8 @@
 
 出力ラベルは `theft` ではなく `unauthorized_object_interaction_suspected` です。犯罪や盗難の断定には使えません。
 
+現在は、卒業研究向けに `router_repair` シナリオのイベント単位実験も扱えます。作業票、許可エリア、対象物、所有者、作業工程と、動画から作った `EventToken` を照合し、同じ動作でも文脈によって `normal` / `review` / `suspicious` / `high_risk` が変わるケースを評価します。
+
 ## Setup
 
 Windows PowerShellでそのまま実行できるように、コマンドはすべて1行で記載しています。
@@ -51,6 +53,30 @@ uv run python -m privacy_vlm_poc.cli analyze --video data/sample/sample_suspicio
 uv run python -m privacy_vlm_poc.cli evaluate --labels data/sample/labels.csv --sampling event_window --num-frames 8 --mask lower_body_only --vlm-backend mock
 ```
 
+## Scenario Experiments
+
+`router_repair` は、Wi-Fiルーター修理作業者が居住者不在または非立会いの状態で作業する想定シナリオです。`configs/scenarios/router_repair.json` の作業票で、許可ゾーン、禁止ゾーン、作業対象物、作業者所有物、住人私物、撮影許可対象を定義します。
+
+イベント単位のRule-Based baseline:
+
+```powershell
+uv run python -m privacy_vlm_poc.cli analyze-scenario --work-order configs/scenarios/router_repair.json --zones configs/zones/router_repair_zones.json --annotations data/real/router_trial_001_annotations.example.jsonl --method rule_based
+```
+
+イベント単位評価:
+
+```powershell
+uv run python -m privacy_vlm_poc.cli evaluate-events --annotations data/real/router_trial_001_annotations.example.jsonl --predictions outputs/runs/latest/event_predictions.jsonl
+```
+
+複数手法比較:
+
+```powershell
+uv run python -m privacy_vlm_poc.cli compare-methods --work-order configs/scenarios/router_repair.json --zones configs/zones/router_repair_zones.json --annotations data/real/router_trial_001_annotations.example.jsonl --methods rule_based,vlm_direct_full,proposed
+```
+
+`rule_based` は `EventToken + WorkOrder` の基準線です。`vlm_direct_full` と `vlm_direct_roi` は初期段階では明示的なスタブで、raw videoを外部APIへ送らない設計を維持しています。`proposed` はRule-Basedを起点に、曖昧イベントだけVLM確認へ回す提案手法の初期形です。
+
 ## Research Matrix
 
 ```powershell
@@ -74,6 +100,9 @@ uv run python scripts/run_research_matrix.py --quick --vlm-backend ollama
 - `background_blur_with_roi`: ROI以外をぼかします。
 - `lower_body_only`: 上半分を黒塗りし、下半分だけ残します。
 - `object_area_only`: ROI以外を黒塗りします。
+- `hand_object_roi`: `object_area_only` と同じROI抽出条件として使います。
+- `full_frame_blur_except_roi`: ROI以外をぼかします。
+- `token_only`: イベントトークンのみ条件を表す名称です。既存動画解析では画像をそのまま通します。
 
 ## VLM Backends
 

@@ -1,0 +1,61 @@
+{
+  "scenario_id": "router_repair_001",
+  "task_name": "Wi-Fiルーターの通信不良確認",
+  "authorized_zones": [
+    "entrance",
+    "work_area",
+    "router_shelf"
+  ],
+  "forbidden_zones": [
+    "private_desk",
+    "private_drawer",
+    "bedroom"
+  ],
+  "target_objects": [
+    "router",
+    "lan_cable",
+    "power_adapter",
+    "wall_socket"
+  ],
+  "worker_owned_objects": [
+    "tool_bag",
+    "screwdriver",
+    "tester",
+    "worker_phone"
+  ],
+  "resident_private_objects": [
+    "wallet",
+    "key",
+    "document",
+    "medicine",
+    "resident_phone"
+  ],
+  "allowed_actions": [
+    "enter",
+    "inspect",
+    "touch_target_object",
+    "photograph_router_label",
+    "unplug_cable",
+    "plug_cable",
+    "use_tool",
+    "put_worker_tool_into_bag",
+    "exit"
+  ],
+  "forbidden_actions": [
+    "open_private_drawer",
+    "photograph_private_document",
+    "put_resident_object_into_worker_bag",
+    "enter_forbidden_zone"
+  ],
+  "allowed_photo_targets": [
+    "router_label",
+    "damaged_cable",
+    "repair_area"
+  ],
+  "high_risk_objects": [
+    "wallet",
+    "key",
+    "document",
+    "medicine"
+  ]
+}

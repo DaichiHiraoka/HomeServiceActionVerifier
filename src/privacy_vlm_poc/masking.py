@@ -87,10 +87,16 @@ def apply_mask(
         return face_like_top_mask(image)
     if method == MaskMethod.BACKGROUND_BLUR_WITH_ROI:
         return background_blur_with_roi(image, roi)
+    if method == MaskMethod.FULL_FRAME_BLUR_EXCEPT_ROI:
+        return background_blur_with_roi(image, roi)
     if method == MaskMethod.LOWER_BODY_ONLY:
         return lower_body_only(image)
     if method == MaskMethod.OBJECT_AREA_ONLY:
         return object_area_only(image, roi)
+    if method == MaskMethod.HAND_OBJECT_ROI:
+        return object_area_only(image, roi)
+    if method == MaskMethod.TOKEN_ONLY:
+        return no_mask(image)
     msg = f"Unsupported mask method: {mask_method}"
     raise ValueError(msg)
 
