@@ -9,7 +9,7 @@ from typing import Sequence
 import cv2
 import numpy as np
 
-from privacy_vlm_poc.schemas import FrameInfo, MaskMethod, ROI
+from home_service_action_verifier.schemas import FrameInfo, MaskMethod, ROI
 
 
 def _coerce_roi(roi: ROI | tuple[int, int, int, int] | None, width: int, height: int) -> ROI:

@@ -37,6 +37,9 @@ ENV/
 htmlcov/
 
 outputs/
+uploadfiles/*
+!uploadfiles/template/
+!uploadfiles/template/**
 data/sample/*.mp4
 data/sample/labels.csv
 

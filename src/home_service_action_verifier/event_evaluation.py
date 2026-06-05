@@ -17,7 +17,7 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 
-from privacy_vlm_poc.schemas import DetectionResult, EventEvaluationMetrics, EventToken
+from home_service_action_verifier.schemas import DetectionResult, EventEvaluationMetrics, EventToken
 
 POSITIVE_LABELS = {"suspicious", "high_risk"}
 NEGATIVE_LABELS = {"normal"}
@@ -77,6 +77,24 @@ def _same_action_lines(rows: list[dict]) -> list[str]:
     return lines
 
 
+def _same_action_different_context_accuracy(rows: list[dict]) -> float | None:
+    dataframe = pd.DataFrame(rows)
+    if dataframe.empty or "same_action_pair_id" not in dataframe.columns:
+        return None
+    pair_rows = dataframe.dropna(subset=["same_action_pair_id"])
+    if pair_rows.empty:
+        return None
+
+    scored_rows = []
+    for _pair_id, group in pair_rows.groupby("same_action_pair_id"):
+        labels = set(group["ground_truth_label"].dropna())
+        if len(group) >= 2 and len(labels) >= 2:
+            scored_rows.extend(bool(value) for value in group["is_correct"])
+    if not scored_rows:
+        return None
+    return float(sum(scored_rows) / len(scored_rows))
+
+
 def evaluate_event_predictions(
     events: list[EventToken],
     results: list[DetectionResult],
@@ -133,6 +151,7 @@ def evaluate_event_predictions(
         roc_auc=_score_metric("roc_auc", y_true, scores),
         average_precision=_score_metric("average_precision", y_true, scores),
         false_alarm_rate=float(fp / (fp + tn)) if (fp + tn) else 0.0,
+        same_action_different_context_accuracy=_same_action_different_context_accuracy(rows),
         num_events=len(y_true),
         num_positive_events=sum(y_true),
         num_negative_events=len(y_true) - sum(y_true),

@@ -1,122 +1,131 @@
-# Privacy VLM PoC
+# Home Service Action Verifier
 
-スマートホーム内の「許可外物品操作疑い」を、限定された視覚情報で検知・説明するための研究用PoCです。
+## 概要
 
-このリポジトリは高精度な盗難検知器ではありません。目的は、フレームサンプリング方式、入力制限、軽量VLMまたはMockモデルの違いによって、判定と説明がどう変わるかを比較できる最小実装を提供することです。
+Home Service Action Verifier は、一般家庭内で許可済み作業者が修理・点検を行う場面を対象にした卒業研究用の実験システムです。動画全体を直接分類するのではなく、イベントアノテーション、作業票、許可エリア、対象物、所有者情報を照合し、イベント単位で `normal` / `review` / `suspicious` / `high_risk` を出力します。
 
-出力ラベルは `theft` ではなく `unauthorized_object_interaction_suspected` です。犯罪や盗難の断定には使えません。
+VLM は主判定器ではなく、必要なイベントだけを確認する補助手段です。最低限の評価は Rule-Based baseline だけで実行できます。
 
-現在は、卒業研究向けに `router_repair` シナリオのイベント単位実験も扱えます。作業票、許可エリア、対象物、所有者、作業工程と、動画から作った `EventToken` を照合し、同じ動作でも文脈によって `normal` / `review` / `suspicious` / `high_risk` が変わるケースを評価します。
+## 研究目的
 
-## Setup
+目的は、許可された作業の範囲から外れた行動をどの情報で検出できるかを数値比較することです。特に、作業票、所有者、許可エリア、イベントトークンが有効か、同じ動作でも文脈が異なる場合に正しく判定できるかを評価します。
 
-Windows PowerShellでそのまま実行できるように、コマンドはすべて1行で記載しています。
+このシステムは犯罪や不正行為を断定しません。顔認識、個人識別、人物属性推定、自動通報は実装しません。
+
+## 対象シナリオ
+
+初期シナリオは `router_repair` です。Wi-Fiルーターの通信不良確認を行う作業者を想定し、`configs/scenarios/router_repair.json` に作業票、`configs/zones/router_repair_zones.json` に仮ゾーン、`data/real/router_trial_001_annotations.example.jsonl` にイベント注釈例を置いています。
+
+## ラベル定義
+
+- `normal`: 作業票・許可エリア・作業対象と整合する通常行動。
+- `review`: スコアが低中程度で、人手確認に回す行動。
+- `suspicious`: 作業票や許可文脈から外れる可能性が高い行動。
+- `high_risk`: 住人所有物を作業者側のバッグ等へ入れるなど、強い確認が必要な行動。
+
+## 作業票とは
+
+作業票 `WorkOrder` は、許可ゾーン、禁止ゾーン、作業対象物、作業者所有物、住人私物、許可行動、禁止行動、撮影許可対象、高リスク物体を定義する JSON です。検知器はイベントをこの作業票と照合してスコア化します。
+
+## イベントトークンとは
+
+`EventToken` は、動画から切り出したイベント単位の構造化情報です。開始/終了時刻、行動、ゾーン、物体クラス、所有者、収納先、撮影対象、正解ラベル、同一動作ペアIDなどを持ちます。読み込み時に JSONL の `label` は `ground_truth_label` に変換されます。
+
+## Rule-Based baseline
+
+Rule-Based baseline は、`EventToken + WorkOrder` だけで動く基準手法です。禁止ゾーン、住人私物、撮影許可外対象、作業票にない行動、高リスク物体などに加点し、最終スコアを `0.0` から `1.0` に丸めます。
+
+## 比較対象手法
+
+- `rule_based`: 作業票とイベントトークンを使う基準線。
+- `token_only`: 初期実装では Rule-Based と同じ判定を使い、将来の token-only heuristic の比較枠を確保します。
+- `proposed`: Rule-Based を起点に、曖昧イベントのみ VLM 補助へ回す提案手法の初期形です。現時点では VLM 補助は未実装です。
+- `vlm_direct_full`: Full RGB 入力の比較枠です。イベント窓フレーム抽出未接続のため、現時点では明示的に未実装エラーを返します。
+- `vlm_direct_roi`: 手元/物体ROI入力の比較枠です。ROI生成連携未接続のため、現時点では明示的に未実装エラーを返します。
+
+## CLI使用例
+
+セットアップ:
 
 ```powershell
 uv sync
-uv run python scripts/generate_synthetic_video.py
+uv run home-service-verifier bootstrap
 uv run pytest
 ```
 
-新しいfetch先や別PCでUI用モデルとサンプルデータをまとめて補完する場合は、次の1コマンドを実行します。
+イベント単位解析:
 
 ```powershell
-uv run privacy-vlm-poc bootstrap
-```
-
-このコマンドは `.env` が無ければ作成し、`data/sample` の合成動画を生成し、UIから切り替える `gemma3:4b` と `gemma3:12b` をOllamaへ取得します。Ollama本体は事前にインストールされている必要があります。
-
-## Selected Research VLM
-
-実証用の最小推奨VLMは Ollama の `gemma3:4b` です。ローカル実行でき、Text+Image入力に対応し、約3.3GBの構成で反復比較に使いやすいためです。
-
-```powershell
-ollama pull gemma3:4b
-ollama pull gemma3:12b
-uv run python -m privacy_vlm_poc.cli doctor
-```
-
-`mock` backend は分類精度の検証ではなく、パイプライン接続確認用です。モデル選定根拠は `docs/model_selection.md`、実験手順は `docs/research_protocol.md` を参照してください。
-
-## Streamlit UI
-
-```powershell
-uv run streamlit run src/privacy_vlm_poc/ui.py --server.address 127.0.0.1 --server.port 8501
-```
-
-UIでは動画アップロードまたは合成サンプルを選択し、`sampling_method`、`num_frames`、`mask_method`、ROI、`vlm_backend` を切り替えて解析できます。結果は `outputs/runs/YYYYMMDD_HHMMSS/` に保存されます。
-
-## CLI
-
-```powershell
-uv run python -m privacy_vlm_poc.cli analyze --video data/sample/sample_suspicious.mp4 --sampling hybrid --num-frames 8 --mask background_blur_with_roi --vlm-backend mock
-uv run python -m privacy_vlm_poc.cli evaluate --labels data/sample/labels.csv --sampling event_window --num-frames 8 --mask lower_body_only --vlm-backend mock
-```
-
-## Scenario Experiments
-
-`router_repair` は、Wi-Fiルーター修理作業者が居住者不在または非立会いの状態で作業する想定シナリオです。`configs/scenarios/router_repair.json` の作業票で、許可ゾーン、禁止ゾーン、作業対象物、作業者所有物、住人私物、撮影許可対象を定義します。
-
-イベント単位のRule-Based baseline:
-
-```powershell
-uv run python -m privacy_vlm_poc.cli analyze-scenario --work-order configs/scenarios/router_repair.json --zones configs/zones/router_repair_zones.json --annotations data/real/router_trial_001_annotations.example.jsonl --method rule_based
+uv run python -m home_service_action_verifier.cli analyze-scenario --video data/real/router_trial_001.mp4 --work-order configs/scenarios/router_repair.json --zones configs/zones/router_repair_zones.json --annotations data/real/router_trial_001_annotations.example.jsonl --method rule_based
 ```
 
 イベント単位評価:
 
 ```powershell
-uv run python -m privacy_vlm_poc.cli evaluate-events --annotations data/real/router_trial_001_annotations.example.jsonl --predictions outputs/runs/latest/event_predictions.jsonl
+uv run python -m home_service_action_verifier.cli evaluate-events --annotations data/real/router_trial_001_annotations.example.jsonl --predictions outputs/runs/latest/event_predictions.jsonl
 ```
 
 複数手法比較:
 
 ```powershell
-uv run python -m privacy_vlm_poc.cli compare-methods --work-order configs/scenarios/router_repair.json --zones configs/zones/router_repair_zones.json --annotations data/real/router_trial_001_annotations.example.jsonl --methods rule_based,vlm_direct_full,proposed
+uv run python -m home_service_action_verifier.cli compare-methods --video data/real/router_trial_001.mp4 --work-order configs/scenarios/router_repair.json --zones configs/zones/router_repair_zones.json --annotations data/real/router_trial_001_annotations.example.jsonl --methods rule_based,token_only,proposed
 ```
 
-`rule_based` は `EventToken + WorkOrder` の基準線です。`vlm_direct_full` と `vlm_direct_roi` は初期段階では明示的なスタブで、raw videoを外部APIへ送らない設計を維持しています。`proposed` はRule-Basedを起点に、曖昧イベントだけVLM確認へ回す提案手法の初期形です。
-
-## Research Matrix
+legacy 動画解析:
 
 ```powershell
-uv run python scripts/run_research_matrix.py --quick --vlm-backend mock
-uv run python scripts/run_research_matrix.py --quick --vlm-backend ollama
+uv run python -m home_service_action_verifier.cli analyze --video data/sample/sample_suspicious.mp4 --sampling hybrid --num-frames 8 --mask background_blur_with_roi --vlm-backend mock
 ```
 
-結果は `outputs/runs/research_matrix_*/summary.csv`, `by_condition.csv`, `summary.md` に保存されます。
+Streamlit UI は本目的用のイベント単位実験画面です。`uploadfiles/<folder>` を1つ指定すると、作業票、ゾーン、アノテーション、動画パスを同時に読み込み、`rule_based`、`token_only`、`proposed` の解析・評価・比較を同じ画面で実行できます。
 
-## Sampling Methods
+```powershell
+uv run streamlit run src/home_service_action_verifier/ui.py --server.address 127.0.0.1 --server.port 8501
+```
 
-- `uniform`: 動画全体から等間隔にN枚選び、全体文脈を残します。
-- `motion`: 隣接フレーム差分が大きいフレームを優先します。
-- `hybrid`: `uniform` と `motion` を混ぜ、全体文脈と変化の大きい瞬間を両方残します。
-- `event_window`: 高モーションフレームの前後も含め、対象物が「ある -> 触る/動く -> なくなる」前後関係を見やすくします。
+`uploadfiles/template` をコピーして、実証用フォルダを `uploadfiles/` 直下に並列配置します。
 
-## Mask Methods
+```text
+uploadfiles/
+  template/
+    work_order.json
+    zones.json
+    annotations.jsonl
+    video_path.txt
+  router_trial_001/
+    work_order.json
+    zones.json
+    annotations.jsonl
+    video_path.txt
+    video.mp4
+```
 
-- `none`: 元画像をそのまま使います。
-- `face_like_top_mask`: 顔検出ではなく、画像上部中央を矩形で黒塗りするPoC用匿名化です。
-- `background_blur_with_roi`: ROI以外をぼかします。
-- `lower_body_only`: 上半分を黒塗りし、下半分だけ残します。
-- `object_area_only`: ROI以外を黒塗りします。
-- `hand_object_roi`: `object_area_only` と同じROI抽出条件として使います。
-- `full_frame_blur_except_roi`: ROI以外をぼかします。
-- `token_only`: イベントトークンのみ条件を表す名称です。既存動画解析では画像をそのまま通します。
+`video_path.txt` は、動画を記録する場合に `video.mp4` のような相対パスを1行だけ書きます。イベントトークン評価だけならコメントのみでも動きます。
 
-## VLM Backends
+## 出力ファイル
 
-- `mock`: 外部モデルなしで動く決定的なMockです。
-- `ollama`: 実証用の主backendです。`OLLAMA_ENABLED=true`, `OLLAMA_MODEL=gemma3:4b` を設定します。
-- `openai_compatible`: 任意のOpenAI互換API用です。
+`analyze-scenario` は `outputs/runs/<timestamp>/event_predictions.jsonl`、`summary.md`、`config.json` を出力し、最新予測を `outputs/runs/latest/event_predictions.jsonl` にも保存します。
 
-外部APIへ raw video は送りません。送る設計になっているのは、選択・マスク済みフレームから生成した `grid.jpg` のみです。
+`evaluate-events` は `outputs/evaluations/<timestamp>/metrics.json`、`per_event.csv`、`confusion_matrix.csv`、`summary.md` を出力します。
 
-## Limits
+`compare-methods` は `per_method_metrics.csv`、`per_event_predictions.csv`、`summary.md`、`config.json` を出力します。
 
-- 実際の盗難検知精度は保証しません。
-- 物体検出や手検出は簡易実装です。
-- マスク処理はPoC用であり、匿名化を保証しません。
-- VLMの出力は誤る可能性があります。
-- 犯罪判断には使えません。
-- 顔認識、個人識別、人物属性推定は実装していません。
+## 評価指標
+
+評価はイベント単位です。`normal` を negative、`suspicious` と `high_risk` を positive とし、`review` はデフォルトで除外します。`accuracy`、`precision`、`recall`、`f1`、`roc_auc`、`average_precision`、`false_alarm_rate`、`same_action_different_context_accuracy`、confusion matrix を出力します。
+
+## 制限事項
+
+- 実動画からの物体検出、手検出、所有者推定は未実装または stub です。
+- ゾーン定義は固定矩形の仮座標で、実動画に合わせた調整が必要です。
+- `vlm_direct_full` と `vlm_direct_roi` は比較枠のみで、現時点では未接続です。
+- `proposed` は Rule-Based 結果を採用し、曖昧イベントを将来の VLM 確認対象として記録します。
+- legacy VLM backend は補助機能であり、研究評価の中心ではありません。
+
+## 禁止事項
+
+- 顔認識、個人識別、年齢・性別・体型・服装属性の推定をしない。
+- 犯罪関与や犯罪事実の断定をしない。
+- 警察や外部機関への自動通報をしない。
+- raw video を外部APIへ送信する設計にしない。
+- 実運用の防犯システムであるかのように扱わない。

@@ -1,67 +1,56 @@
 # Router Repair Scenario
 
-## Overview
+## 概要
 
-`router_repair` models a permitted home visit for checking a Wi-Fi router communication problem. The worker is allowed to enter, inspect the router shelf, handle router-related cables and adapters, photograph router labels or damage, use worker-owned tools, return worker-owned tools to the tool bag, and exit.
+`router_repair` は、作業者が一般家庭内で Wi-Fi ルーターの通信不良を確認する固定シナリオです。カメラ1台の映像を前提に、作業票とイベント注釈を照合して、イベント単位で通常行動、要確認行動、不審行動、高リスク行動を評価します。
 
-The system does not decide theft or crime. It marks event-level behavior as `normal`, `review`, `suspicious`, or `high_risk` for later human review.
+## カメラ前提
 
-## Work Order
+1台の固定カメラで、玄関付近、ルーター棚、作業エリア、私物机、工具バッグ置き場が画面に入る構図を想定します。ゾーン座標は `configs/zones/router_repair_zones.json` の仮座標を実動画に合わせて更新します。
 
-The work order is stored at `configs/scenarios/router_repair.json`.
+## 画面内の配置
 
-It defines:
+- `router_shelf`: ルーター、LANケーブル、電源アダプタを置く許可エリア。
+- `work_area`: 作業者が点検や工具操作を行う許可エリア。
+- `private_desk`: 書類、鍵、財布などの住人所有物がある禁止エリア。
+- `tool_bag_area`: 作業者バッグを置く領域。
 
-- authorized zones: `entrance`, `work_area`, `router_shelf`
-- forbidden zones: `private_desk`, `private_drawer`, `bedroom`
-- target objects: `router`, `lan_cable`, `power_adapter`, `wall_socket`
-- worker-owned objects: `tool_bag`, `screwdriver`, `tester`, `worker_phone`
-- resident private objects: `wallet`, `key`, `document`, `medicine`, `resident_phone`
-- allowed photo targets: `router_label`, `damaged_cable`, `repair_area`
+## 正常行動
 
-## Normal Actions
+- 入室して工具バッグを置く。
+- ルーター、LANケーブル、電源アダプタ、壁コンセントを確認する。
+- ルーター型番、破損ケーブル、修理箇所を撮影する。
+- 作業者所有の工具を工具バッグに戻す。
+- 作業完了後に退出する。
 
-- enter from the entrance
-- move to the router shelf
-- inspect the router
-- unplug or plug LAN cables
-- inspect the power adapter
-- photograph the router label or damaged cable
-- use worker-owned tools
-- return worker-owned tools to the worker tool bag
-- exit after work
+## 不審行動
 
-## Suspicious Or High-Risk Actions
+- 作業対象外の私物机や引き出しに関わる。
+- 許可されていない書類や住人所有物を撮影する。
+- 住人所有物を手に取る、動かす、保持する。
 
-- approach a private desk
-- open a private drawer
-- pick up documents, keys, wallet, medicine, or resident phone
-- photograph private documents
-- place resident-owned objects into a worker container
-- enter a forbidden zone
+## 高リスク行動
 
-## Same Action Different Context Pairs
+- 住人所有物を作業者側のバッグ等へ入れる。
+- 鍵、財布、書類、薬など高リスク物体を許可外文脈で扱う。
 
-| pair_id | normal context | risky context |
-| --- | --- | --- |
-| `bag_context` | worker screwdriver into worker tool bag | resident key into worker tool bag |
-| `photo_context` | photograph router label | photograph private document |
-| `drawer_context` | task-related storage, when annotated | private desk drawer |
+## 同一動作・異文脈ペア
 
-## Recording Notes
+- `photo_context`: ルーター型番の撮影は正常、私的書類の撮影は不審。
+- `bag_context`: 作業者工具をバッグに戻す行動は正常、住人所有の鍵をバッグへ入れる行動は高リスク。
+- `drawer_context`: 作業対象外の引き出し操作は不審文脈として扱う。
 
-Keep camera framing fixed when using `configs/zones/router_repair_zones.json`. The zone coordinates are initial placeholders and should be calibrated to the real camera view before collecting final data.
+## 作業票JSONとの対応
 
-Do not collect or infer personal identity, face identity, age, gender, body type, or clothing-derived attributes. The experiment only needs event timing, zone, action, object class, and ownership context.
+`configs/scenarios/router_repair.json` で許可ゾーン、禁止ゾーン、作業対象物、作業者所有物、住人私物、許可行動、禁止行動、撮影許可対象、高リスク物体を定義します。Rule-Based baseline はこの作業票を参照してイベントのスコアを計算します。
 
-## Annotation Format
+## アノテーション方法
 
-Annotations are JSONL, one event per line. `label` is loaded as `ground_truth_label`.
+`data/real/router_trial_001_annotations.example.jsonl` と同じ形式で、1行1イベントを JSONL として記録します。`event_id`、`start_sec`、`end_sec`、`action` は必須です。評価に使う場合は `label` または `ground_truth_label` を `normal`、`review`、`suspicious`、`high_risk` のいずれかで付与します。
 
-Required fields are `event_id`, `start_sec`, `end_sec`, and `action`. Optional fields include `zone`, `object_class`, `object_owner`, `container_class`, `container_owner`, `target_object`, `same_action_pair_id`, and `notes`.
+## 撮影時の注意点
 
-Example file:
-
-```text
-data/real/router_trial_001_annotations.example.jsonl
-```
+- 顔や個人識別情報を中心に撮影しない。
+- 研究協力者の同意を得た環境で撮影する。
+- raw video を外部APIへ送信しない。
+- 実験用の模擬物体を使い、実在の私的情報が写らないようにする。

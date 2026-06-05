@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from privacy_vlm_poc.masking import (
+from home_service_action_verifier.masking import (
     background_blur_with_roi,
     face_like_top_mask,
     grid_image,
@@ -10,7 +10,7 @@ from privacy_vlm_poc.masking import (
     no_mask,
     object_area_only,
 )
-from privacy_vlm_poc.schemas import FrameInfo, ROI
+from home_service_action_verifier.schemas import FrameInfo, ROI
 
 
 def _image() -> np.ndarray:

@@ -1,166 +1,138 @@
 # Research Protocol
 
-This protocol turns the repository from a pipeline PoC into a repeatable experiment harness.
+## 1. 目的
 
-## 1. Setup
+このプロトコルは、Home Service Action Verifier をイベント単位の研究評価として再現するための手順です。中心は VLM ではなく、`EventToken`、`WorkOrder`、Rule-Based検知、イベント単位評価、手法比較です。
 
-```bash
+検知結果は研究上の `normal` / `review` / `suspicious` / `high_risk` ラベルであり、犯罪や不正行為を断定しません。
+
+## 2. セットアップ
+
+```powershell
 uv sync
-uv run python scripts/generate_synthetic_video.py
-```
-
-For pipeline-only verification:
-
-```bash
+uv run home-service-verifier bootstrap
 uv run pytest
-uv run python -m privacy_vlm_poc.cli analyze --video data/sample/sample_suspicious.mp4 --sampling hybrid --num-frames 8 --mask background_blur_with_roi --vlm-backend mock
 ```
 
-For real VLM verification, install Ollama and pull the selected local model:
+Ollama を補助確認器として使う場合のみ、ローカルモデルを取得します。
 
-```bash
+```powershell
 ollama pull gemma3:4b
 ollama pull gemma3:12b
+uv run python -m home_service_action_verifier.cli doctor
 ```
 
-Set `.env`:
+## 3. シナリオ資産
 
-```env
-OLLAMA_ENABLED=true
-OLLAMA_MODEL=gemma3:4b
+初期シナリオは `router_repair` です。
+
+- 作業票: `configs/scenarios/router_repair.json`
+- ゾーン定義: `configs/zones/router_repair_zones.json`
+- 注釈例: `data/real/router_trial_001_annotations.example.jsonl`
+
+実動画を使う場合は、注釈例をコピーして実際の `start_sec` / `end_sec` / `action` / `zone` / `object_class` / `object_owner` / `label` に更新します。ゾーン座標も実動画の画角へ合わせます。
+
+## 4. Rule-Based baseline
+
+```powershell
+uv run python -m home_service_action_verifier.cli analyze-scenario --video data/real/router_trial_001.mp4 --work-order configs/scenarios/router_repair.json --zones configs/zones/router_repair_zones.json --annotations data/real/router_trial_001_annotations.example.jsonl --method rule_based
 ```
 
-Then verify readiness:
+出力:
 
-```bash
-uv run python -m privacy_vlm_poc.cli doctor
-```
-
-For event-level scenario assets:
-
-```bash
-uv run privacy-vlm-poc bootstrap
-```
-
-## 2. Single-Video Real VLM Run
-
-```bash
-uv run python -m privacy_vlm_poc.cli analyze \
-  --video data/sample/sample_suspicious.mp4 \
-  --sampling event_window \
-  --num-frames 8 \
-  --mask background_blur_with_roi \
-  --vlm-backend ollama
-```
-
-Inspect:
-
-- `outputs/runs/<timestamp>/grid.jpg`
-- `outputs/runs/<timestamp>/result.json`
-- `outputs/runs/<timestamp>/report.md`
+- `outputs/runs/<timestamp>/event_predictions.jsonl`
+- `outputs/runs/<timestamp>/summary.md`
 - `outputs/runs/<timestamp>/config.json`
+- `outputs/runs/latest/event_predictions.jsonl`
 
-## 3. Sampling x Masking Matrix
+## 5. イベント単位評価
 
-Quick smoke matrix:
+```powershell
+uv run python -m home_service_action_verifier.cli evaluate-events --annotations data/real/router_trial_001_annotations.example.jsonl --predictions outputs/runs/latest/event_predictions.jsonl
+```
 
-```bash
+評価では `normal` を negative、`suspicious` と `high_risk` を positive とし、`review` はデフォルトで除外します。`review_policy` で `exclude`、`positive`、`negative` を選べます。
+
+主要指標:
+
+- `accuracy`
+- `precision`
+- `recall`
+- `f1`
+- `roc_auc`
+- `average_precision`
+- `false_alarm_rate`
+- `same_action_different_context_accuracy`
+
+## 6. 複数手法比較
+
+```powershell
+uv run python -m home_service_action_verifier.cli compare-methods --video data/real/router_trial_001.mp4 --work-order configs/scenarios/router_repair.json --zones configs/zones/router_repair_zones.json --annotations data/real/router_trial_001_annotations.example.jsonl --methods rule_based,token_only,proposed
+```
+
+比較表は `outputs/evaluations/<timestamp>/per_method_metrics.csv` と `summary.md` に保存されます。
+
+初期比較:
+
+| Method | Input | Status |
+| --- | --- | --- |
+| Rule-Based | EventToken + WorkOrder | implemented |
+| Token Only | EventToken | implemented as initial deterministic baseline |
+| Proposed | EventToken + WorkOrder + future ROI/VLM | initial Rule-Based scaffold |
+| VLM Direct Full | Full RGB event frames | not connected |
+| VLM Direct ROI | Hand/Object ROI event frames | not connected |
+
+## 7. Streamlit UI
+
+本目的用UIでは、`uploadfiles/<folder>` を1つ指定し、`rule_based`、`token_only`、`proposed` をイベント単位で実行・評価・比較できます。個別アップロードではなく、フォルダ内の4ファイルを同時に読み込みます。
+
+```powershell
+uv run streamlit run src/home_service_action_verifier/ui.py --server.address 127.0.0.1 --server.port 8501
+```
+
+テンプレート:
+
+```text
+uploadfiles/template/
+  work_order.json
+  zones.json
+  annotations.jsonl
+  video_path.txt
+```
+
+実証用フォルダは `uploadfiles/template` をコピーし、`uploadfiles/router_trial_001` のように同階層へ配置します。`video_path.txt` には、同フォルダに置いた動画なら `video.mp4` と書きます。動画を使わない評価ではコメントのみでも構いません。
+
+## 8. Same Action Different Context
+
+同じ動作でも文脈が異なるイベントを `same_action_pair_id` で結びます。
+
+- `photo_context`: ルーター型番の撮影と私的書類の撮影。
+- `bag_context`: 作業者工具をバッグへ戻す行動と住人所有物を作業者バッグへ入れる行動。
+
+`same_action_different_context_accuracy` は、同一ペア内で異なる正解ラベルを持つイベントを正しく分けられた割合です。
+
+## 9. Privacy And Safety Constraints
+
+- raw video を外部APIへ送信しない。
+- 顔認識、個人識別、年齢、性別、体型、服装属性の推定を行わない。
+- 実運用の防犯システムとして扱わない。
+- 出力は研究用の許可外行動候補であり、断定表現を使わない。
+
+## 10. Legacy Video Analysis
+
+既存の動画読み込み、フレーム抽出、マスク処理、VLM backend 接続は補助機能として残しています。研究評価の主手順ではありません。
+
+```powershell
+uv run python -m home_service_action_verifier.cli analyze --video data/sample/sample_suspicious.mp4 --sampling hybrid --num-frames 8 --mask background_blur_with_roi --vlm-backend mock
 uv run python scripts/run_research_matrix.py --quick --vlm-backend mock
 ```
 
-Real VLM quick matrix:
+legacy `mock` backend はパイプライン接続確認用であり、精度評価の根拠にはしません。
 
-```bash
-uv run python scripts/run_research_matrix.py --quick --vlm-backend ollama
-```
+## 11. Minimum Evidence For Demo
 
-Full matrix:
-
-```bash
-uv run python scripts/run_research_matrix.py --vlm-backend ollama
-```
-
-The matrix writes:
-
-- `summary.csv`: per-run prediction, confidence, selected frames, explanation, limitations
-- `by_condition.csv`: average confidence, selected-frame recall, processing time by sampling/mask condition
-- `summary.md`: readable summary
-- `config.json`: experiment configuration
-
-## 4. What To Compare
-
-Primary comparisons:
-
-- Sampling method vs. `selected_frame_recall`
-- Sampling method vs. VLM explanation changes in `reason` and `limitations`
-- Mask method vs. confidence and false/low-confidence outcomes
-- Mask method vs. privacy-sensitive output flag
-
-Do not report the result as theft detection accuracy. The permitted label is `unauthorized_object_interaction_suspected`.
-
-## 5. Event-Level Scenario Protocol
-
-The fixed `router_repair` scenario keeps the work order, allowed zones, forbidden zones, and ownership context stable. This makes the central comparison clear: whether a method can distinguish the same visible action under different work-order contexts.
-
-Primary event labels:
-
-- `normal`: authorized work behavior
-- `review`: ambiguous behavior that should be checked by a human
-- `suspicious`: likely unauthorized behavior
-- `high_risk`: behavior involving private objects, forbidden areas, or resident objects entering worker containers
-
-Event-level evaluation is preferred over video-level evaluation because a whole-video label hides which action triggered the decision. The experiment should report per-event predictions, reasons, and evidence.
-
-Comparison conditions:
-
-- `Rule-Based`: `EventToken + WorkOrder`
-- `VLM Direct Full`: selected full RGB event frames, initially a placeholder until event-window frame extraction is wired
-- `VLM Direct ROI`: hand/object ROI event frames, initially a placeholder
-- `Token Only`: event token structure without images
-- `Proposed`: Rule-Based first, then VLM confirmation for ambiguous events
-
-Metrics:
-
-- Accuracy shows overall event-label correctness after binary conversion.
-- Precision shows how often positive alerts are correct.
-- Recall shows how many suspicious/high-risk events are caught.
-- F1 balances precision and recall.
-- ROC-AUC and Average Precision evaluate score separation when both classes are present.
-- False Alarm Rate shows how often normal events become positive alerts.
-- Same Action Different Context rows in `summary.md` show whether matching action pairs, such as worker tool into bag versus resident key into bag, are separated correctly.
-
-Privacy constraints should be treated as experimental conditions, not afterthoughts. Compare full RGB, ROI-limited, and token-only inputs to measure performance changes under reduced visual information. Do not add face recognition, personal identification, age, gender, body-type, or clothing-attribute inference.
-
-## 6. Scenario Commands
-
-Rule-Based baseline:
-
-```bash
-uv run python -m privacy_vlm_poc.cli analyze-scenario --work-order configs/scenarios/router_repair.json --zones configs/zones/router_repair_zones.json --annotations data/real/router_trial_001_annotations.example.jsonl --method rule_based
-```
-
-Evaluate predictions:
-
-```bash
-uv run python -m privacy_vlm_poc.cli evaluate-events --annotations data/real/router_trial_001_annotations.example.jsonl --predictions outputs/runs/latest/event_predictions.jsonl
-```
-
-Compare methods:
-
-```bash
-uv run python -m privacy_vlm_poc.cli compare-methods --work-order configs/scenarios/router_repair.json --zones configs/zones/router_repair_zones.json --annotations data/real/router_trial_001_annotations.example.jsonl --methods rule_based,vlm_direct_full,proposed
-```
-
-The system must avoid crime conclusions. Use wording such as unauthorized interaction suspected, review, suspicious, and high risk.
-
-## 7. Minimum Evidence For Graduation Research Demo
-
-The repository is ready for an initial research demo when all of the following are true:
-
-- `uv run pytest` passes
-- `uv run python -m privacy_vlm_poc.cli doctor` reports the selected Ollama model present
-- one suspicious and one normal synthetic video run succeed with `--vlm-backend ollama`
-- `scripts/run_research_matrix.py --quick --vlm-backend ollama` produces `summary.csv`
-- `analyze-scenario --method rule_based` produces `event_predictions.jsonl`
-- `evaluate-events` produces `metrics.json`, `per_event.csv`, `confusion_matrix.csv`, and `summary.md`
-- report discussion focuses on uncertainty and limited visual information, not crime determination
+- `uv run pytest` が通る。
+- `analyze-scenario --method rule_based` が `event_predictions.jsonl` を出す。
+- `evaluate-events` が `metrics.json`、`per_event.csv`、`confusion_matrix.csv`、`summary.md` を出す。
+- `compare-methods --methods rule_based,token_only,proposed` が比較表を出す。
+- レポートでは、怪しい行動の定義、使った情報、Rule-Basedだけの性能、入力制限条件、同一動作・異文脈ペアの評価を説明する。

@@ -1,0 +1,4 @@
+# Optional video path for this scenario folder.
+# Put a relative path from this folder or an absolute path on the first non-comment line.
+# Example when the actual video is placed next to these files:
+# video.mp4

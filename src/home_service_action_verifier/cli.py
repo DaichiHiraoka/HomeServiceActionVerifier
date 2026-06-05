@@ -11,17 +11,22 @@ import pandas as pd
 from rich.console import Console
 from rich.table import Table
 
-from privacy_vlm_poc.baselines import proposed, vlm_direct
-from privacy_vlm_poc.analyzer import analyze_video
-from privacy_vlm_poc.event_evaluation import evaluate_event_predictions
-from privacy_vlm_poc.evaluation import evaluate_labels
-from privacy_vlm_poc.model_selection import UI_OLLAMA_MODELS, ensure_ollama_models, model_candidates, ollama_doctor
-from privacy_vlm_poc.rule_engine import run_rule_based
-from privacy_vlm_poc.scenario import load_event_tokens, load_work_order, load_zone_config
-from privacy_vlm_poc.schemas import DetectionResult, EventToken, MaskMethod, ROI, SamplingMethod, VLMBackend, WorkOrder
+from home_service_action_verifier.baselines import proposed, token_only, vlm_direct
+from home_service_action_verifier.analyzer import analyze_video
+from home_service_action_verifier.event_evaluation import evaluate_event_predictions
+from home_service_action_verifier.evaluation import evaluate_labels
+from home_service_action_verifier.model_selection import (
+    UI_OLLAMA_MODELS,
+    ensure_ollama_models,
+    model_candidates,
+    ollama_doctor,
+)
+from home_service_action_verifier.rule_engine import run_rule_based
+from home_service_action_verifier.scenario import load_event_tokens, load_work_order, load_zone_config
+from home_service_action_verifier.schemas import DetectionResult, EventToken, MaskMethod, ROI, SamplingMethod, VLMBackend, WorkOrder
 
 console = Console()
-SCENARIO_METHODS = {"rule_based", "vlm_direct_full", "vlm_direct_roi", "proposed"}
+SCENARIO_METHODS = {"rule_based", "token_only", "vlm_direct_full", "vlm_direct_roi", "proposed"}
 
 
 def _parse_roi(value: str | None) -> ROI | None:
@@ -159,10 +164,13 @@ def _latest_dir() -> Path:
 def _run_scenario_method(method: str, events: list[EventToken], work_order: WorkOrder) -> list[DetectionResult]:
     if method == "rule_based":
         return run_rule_based(events, work_order)
+    if method == "token_only":
+        return token_only.run(events, work_order)
     if method == "proposed":
         return proposed.run(events, work_order)
     if method in {"vlm_direct_full", "vlm_direct_roi"}:
-        return vlm_direct.run_stub(events, method)
+        vlm_direct.run_unimplemented(events, method)
+        raise AssertionError("unreachable")
     msg = f"Unsupported scenario method: {method}. Supported methods: {sorted(SCENARIO_METHODS)}"
     raise ValueError(msg)
 
@@ -191,6 +199,15 @@ def _write_scenario_summary(
         lines.append(
             f"| {result.event_id} | {truth} | {result.predicted_label} | "
             f"{result.suspicion_score:.2f} | {reasons} |"
+        )
+    if method == "proposed":
+        lines.extend(
+            [
+                "",
+                "## Proposed Method Status",
+                "",
+                "VLM補助は未実装です。現時点ではRule-Based結果を採用し、曖昧イベントを将来のVLM確認対象として記録します。",
+            ]
         )
     (output_dir / "summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -329,7 +346,7 @@ def compare_methods_command(args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="privacy-vlm-poc")
+    parser = argparse.ArgumentParser(prog="home-service-verifier")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     analyze_parser = subparsers.add_parser("analyze", help="Analyze one video")
@@ -381,7 +398,7 @@ def build_parser() -> argparse.ArgumentParser:
     compare_methods_parser.add_argument("--work-order", required=True, type=Path)
     compare_methods_parser.add_argument("--zones", required=True, type=Path)
     compare_methods_parser.add_argument("--annotations", required=True, type=Path)
-    compare_methods_parser.add_argument("--methods", default="rule_based,vlm_direct_full,proposed")
+    compare_methods_parser.add_argument("--methods", default="rule_based,token_only,proposed")
     compare_methods_parser.add_argument("--output-dir", type=Path, default=None)
     compare_methods_parser.add_argument(
         "--review-policy",

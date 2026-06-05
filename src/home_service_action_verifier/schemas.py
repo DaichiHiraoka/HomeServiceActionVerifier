@@ -210,6 +210,7 @@ class EventEvaluationMetrics(BaseModel):
     roc_auc: float | None = None
     average_precision: float | None = None
     false_alarm_rate: float
+    same_action_different_context_accuracy: float | None = None
     num_events: int
     num_positive_events: int
     num_negative_events: int

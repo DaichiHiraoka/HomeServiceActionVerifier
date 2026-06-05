@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from privacy_vlm_poc.schemas import ZoneConfig
+from home_service_action_verifier.schemas import ZoneConfig
 
 
 def find_zone_for_point(x: int, y: int, zone_config: ZoneConfig) -> str | None:

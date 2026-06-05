@@ -7,8 +7,8 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from privacy_vlm_poc.schemas import EventToken, ROI
-from privacy_vlm_poc.video_io import get_video_metadata, open_video_capture
+from home_service_action_verifier.schemas import EventToken, ROI
+from home_service_action_verifier.video_io import get_video_metadata, open_video_capture
 
 
 def crop_roi_from_frame(frame: np.ndarray, roi: ROI) -> np.ndarray:

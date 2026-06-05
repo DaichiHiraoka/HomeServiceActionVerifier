@@ -9,9 +9,9 @@ from pathlib import Path
 import pandas as pd
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 
-from privacy_vlm_poc.analyzer import analyze_video
-from privacy_vlm_poc.config import Settings, get_settings
-from privacy_vlm_poc.schemas import EvaluationMetrics, MaskMethod, ROI, SamplingMethod, VLMBackend
+from home_service_action_verifier.analyzer import analyze_video
+from home_service_action_verifier.config import Settings, get_settings
+from home_service_action_verifier.schemas import EvaluationMetrics, MaskMethod, ROI, SamplingMethod, VLMBackend
 
 
 def parse_evidence_frames(value: object) -> list[int]:
@@ -135,7 +135,7 @@ def evaluate_labels(
         average_processing_time_sec=float(sum(processing_times) / len(processing_times)) if processing_times else 0.0,
         num_videos=len(y_true),
         notes=(
-            "MockVLMClientの分類指標は精度評価としては意味が限定的です。"
+            "legacy mock clientの分類指標は精度評価としては意味が限定的です。"
             "この評価は主にパイプラインとサンプリング比較の確認用です。"
         ),
     )

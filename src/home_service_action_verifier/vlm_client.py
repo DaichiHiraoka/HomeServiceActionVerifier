@@ -16,12 +16,12 @@ from typing import Protocol
 
 from pydantic import ValidationError
 
-from privacy_vlm_poc.config import Settings, get_settings
-from privacy_vlm_poc.schemas import AnalyzeConfig, FrameInfo, VideoMetadata, VLMBackend, VLMResponse
+from home_service_action_verifier.config import Settings, get_settings
+from home_service_action_verifier.schemas import AnalyzeConfig, FrameInfo, VideoMetadata, VLMBackend, VLMResponse
 
 
 SYSTEM_PROMPT = """あなたはスマートホーム内の限定された視覚情報から、許可外物品操作の疑いを説明する研究用PoCの解析器です。
-犯罪や盗難を断定してはいけません。出力ラベルは unauthorized_object_interaction_suspected のみを使います。
+犯罪や不正行為を断定してはいけません。legacy動画解析では unauthorized_object_interaction_suspected を内部フラグとしてのみ使います。
 顔、年齢、性別、体型、服装の詳細、個人識別情報を推定・記述してはいけません。
 判断根拠は対象物、手元、移動、消失、持ち去り疑いに限定してください。
 疑いあり true にしてよいのは、人物ではない同一対象物が、前半フレームで存在し、その後に手元付近で移動・収納・消失した前後関係が見える場合だけです。
@@ -156,7 +156,7 @@ def build_user_prompt(frame_infos: list[FrameInfo], metadata: VideoMetadata, con
     )
 
 
-class MockVLMClient:
+class LegacyMockClient:
     """Deterministic local backend for full-pipeline verification."""
 
     def analyze(
@@ -189,7 +189,7 @@ class MockVLMClient:
             ),
             privacy_sensitive_description_included=False,
             limitations=(
-                "MockVLMClientは画像内容を理解しません。分類精度の評価ではなく、"
+                "legacy mock clientは画像内容を理解しません。分類精度の評価ではなく、"
                 "パイプライン接続と比較実験の動作確認に使ってください。"
             ),
         )
@@ -321,7 +321,7 @@ def _backend_error_response(backend_name: str, exc: BaseException) -> VLMRespons
 def create_vlm_client(backend: str | VLMBackend, settings: Settings | None = None) -> VLMClient:
     selected = VLMBackend(backend)
     if selected == VLMBackend.MOCK:
-        return MockVLMClient()
+        return LegacyMockClient()
     if selected == VLMBackend.OLLAMA:
         return OllamaVLMClient(settings)
     if selected == VLMBackend.OPENAI_COMPATIBLE:

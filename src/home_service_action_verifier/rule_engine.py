@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from privacy_vlm_poc.schemas import DetectionResult, EventToken, WorkOrder
+from home_service_action_verifier.schemas import DetectionResult, EventToken, WorkOrder
 
 
 def label_from_score(score: float) -> str:

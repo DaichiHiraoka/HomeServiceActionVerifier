@@ -8,7 +8,7 @@ from typing import Iterable
 import cv2
 import numpy as np
 
-from privacy_vlm_poc.schemas import FrameInfo, VideoMetadata
+from home_service_action_verifier.schemas import FrameInfo, VideoMetadata
 
 SUPPORTED_VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi"}
 

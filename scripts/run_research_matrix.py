@@ -11,10 +11,10 @@ from pathlib import Path
 
 import pandas as pd
 
-from privacy_vlm_poc.analyzer import analyze_video
-from privacy_vlm_poc.config import get_settings
-from privacy_vlm_poc.evaluation import parse_evidence_frames, selected_frame_recall
-from privacy_vlm_poc.schemas import MaskMethod, SamplingMethod, VLMBackend
+from home_service_action_verifier.analyzer import analyze_video
+from home_service_action_verifier.config import get_settings
+from home_service_action_verifier.evaluation import parse_evidence_frames, selected_frame_recall
+from home_service_action_verifier.schemas import MaskMethod, SamplingMethod, VLMBackend
 
 ROOT = Path(__file__).resolve().parents[1]
 SAMPLE_DIR = ROOT / "data" / "sample"

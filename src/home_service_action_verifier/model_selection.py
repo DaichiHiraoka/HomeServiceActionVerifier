@@ -13,7 +13,7 @@ import urllib.request
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from privacy_vlm_poc.config import Settings, get_settings
+from home_service_action_verifier.config import Settings, get_settings
 
 RECOMMENDED_OLLAMA_MODEL = "gemma3:4b"
 HIGHER_QUALITY_OLLAMA_MODEL = "gemma3:12b"

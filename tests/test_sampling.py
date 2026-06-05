@@ -5,7 +5,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from privacy_vlm_poc.sampling import event_window_sampling, hybrid_sampling, uniform_sampling
+from home_service_action_verifier.sampling import event_window_sampling, hybrid_sampling, uniform_sampling
 
 
 def _make_test_video(path: Path, frames: int = 30, fps: int = 10) -> Path:

@@ -3,9 +3,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from privacy_vlm_poc.config import Settings
-from privacy_vlm_poc.schemas import AnalyzeConfig, FrameInfo, MaskMethod, SamplingMethod, VLMBackend, VideoMetadata
-from privacy_vlm_poc.vlm_client import OllamaVLMClient
+from home_service_action_verifier.config import Settings
+from home_service_action_verifier.schemas import AnalyzeConfig, FrameInfo, MaskMethod, SamplingMethod, VLMBackend, VideoMetadata
+from home_service_action_verifier.vlm_client import OllamaVLMClient
 
 
 def test_ollama_client_uses_per_run_model_override(monkeypatch) -> None:
@@ -31,8 +31,8 @@ def test_ollama_client_uses_per_run_model_override(monkeypatch) -> None:
             }
         }
 
-    monkeypatch.setattr("privacy_vlm_poc.vlm_client._post_json", fake_post_json)
-    monkeypatch.setattr("privacy_vlm_poc.vlm_client._image_to_base64", lambda path: "encoded-image")
+    monkeypatch.setattr("home_service_action_verifier.vlm_client._post_json", fake_post_json)
+    monkeypatch.setattr("home_service_action_verifier.vlm_client._image_to_base64", lambda path: "encoded-image")
 
     settings = Settings(ollama_enabled=True, ollama_host="http://localhost:11434", ollama_model="gemma3:4b")
     client = OllamaVLMClient(settings)

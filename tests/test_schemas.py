@@ -3,8 +3,8 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from privacy_vlm_poc.schemas import VLMResponse
-from privacy_vlm_poc.vlm_client import apply_research_constraints
+from home_service_action_verifier.schemas import VLMResponse
+from home_service_action_verifier.vlm_client import apply_research_constraints
 
 
 def test_vlm_response_schema_accepts_valid_json() -> None:

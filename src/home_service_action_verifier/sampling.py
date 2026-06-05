@@ -10,8 +10,8 @@ from typing import Iterable
 import cv2
 import numpy as np
 
-from privacy_vlm_poc.schemas import FrameInfo
-from privacy_vlm_poc.video_io import extract_frames_by_indices, get_video_metadata, open_video_capture, resize_frame
+from home_service_action_verifier.schemas import FrameInfo
+from home_service_action_verifier.video_io import extract_frames_by_indices, get_video_metadata, open_video_capture, resize_frame
 
 
 def _default_output_dir() -> Path:

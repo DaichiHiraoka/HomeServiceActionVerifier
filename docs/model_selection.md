@@ -1,14 +1,14 @@
-# VLM Model Selection
+# Legacy VLM Model Selection
 
 ## Decision
 
-Use `gemma3:4b` through Ollama as the minimum real VLM for research verification.
+Use `gemma3:4b` through Ollama as the minimum local VLM for optional helper checks.
 
-Use `gemma3:12b` as the higher-quality local check when the machine has enough memory and latency is acceptable. Keep `mock` only for pipeline smoke tests.
+Use `gemma3:12b` as the higher-quality local check when the machine has enough memory and latency is acceptable. Keep `mock` only for pipeline smoke tests. The core research evaluation should still run with `rule_based`, `token_only`, and `proposed`.
 
 ## Rationale
 
-The research question needs repeated comparisons across frame sampling and visual masking conditions. The default model therefore needs to be:
+Legacy visual helper checks need repeated comparisons across frame sampling and visual masking conditions. The default model therefore needs to be:
 
 - runnable locally, so raw video does not leave the machine
 - able to accept image input, because this PoC sends only selected/masked `grid.jpg`
@@ -51,7 +51,7 @@ OLLAMA_MODEL=gemma3:4b
 Check readiness:
 
 ```bash
-uv run python -m privacy_vlm_poc.cli doctor
+uv run python -m home_service_action_verifier.cli doctor
 ```
 
 ## Sources

@@ -9,10 +9,10 @@ from pathlib import Path
 
 import cv2
 
-from privacy_vlm_poc.config import Settings, get_settings
-from privacy_vlm_poc.masking import apply_mask, grid_image, read_image
-from privacy_vlm_poc.sampling import event_window_sampling, hybrid_sampling, motion_sampling, uniform_sampling
-from privacy_vlm_poc.schemas import (
+from home_service_action_verifier.config import Settings, get_settings
+from home_service_action_verifier.masking import apply_mask, grid_image, read_image
+from home_service_action_verifier.sampling import event_window_sampling, hybrid_sampling, motion_sampling, uniform_sampling
+from home_service_action_verifier.schemas import (
     AnalyzeConfig,
     AnalyzeResult,
     FrameInfo,
@@ -22,8 +22,8 @@ from privacy_vlm_poc.schemas import (
     VLMBackend,
     VLMResponse,
 )
-from privacy_vlm_poc.video_io import get_video_metadata
-from privacy_vlm_poc.vlm_client import create_vlm_client
+from home_service_action_verifier.video_io import get_video_metadata
+from home_service_action_verifier.vlm_client import create_vlm_client
 
 
 def _make_run_dir(output_root: str | Path) -> Path:
@@ -66,7 +66,7 @@ def _write_report(
     processing_time_sec: float,
 ) -> None:
     selected = ", ".join(f"{frame.frame_index} ({frame.timestamp:.2f}s)" for frame in selected_frames)
-    report = f"""# Privacy VLM PoC Report
+    report = f"""# Home Service Action Verifier Legacy VLM Report
 
 ## Summary
 
@@ -92,7 +92,7 @@ def _write_report(
 
 ## Note
 
-このレポートは研究用PoCの出力です。犯罪や盗難の断定には使えません。
+このレポートはlegacy動画解析の補助出力です。犯罪や不正行為の断定には使えません。
 """
     path.write_text(report, encoding="utf-8")
 

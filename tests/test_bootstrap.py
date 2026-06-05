@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from privacy_vlm_poc.model_selection import ensure_local_env
+from home_service_action_verifier.model_selection import ensure_local_env
 
 
 def test_ensure_local_env_creates_runtime_defaults(tmp_path: Path) -> None:

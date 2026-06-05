@@ -8,7 +8,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from privacy_vlm_poc.schemas import EventToken, WorkOrder, ZoneConfig
+from home_service_action_verifier.schemas import EventToken, WorkOrder, ZoneConfig
 
 ALLOWED_EVENT_LABELS = {"normal", "review", "suspicious", "high_risk"}
 
