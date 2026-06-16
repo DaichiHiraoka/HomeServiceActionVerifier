@@ -37,11 +37,15 @@ ENV/
 htmlcov/
 
 outputs/
-uploadfiles/*
-!uploadfiles/template/
-!uploadfiles/template/**
-data/sample/*.mp4
-data/sample/labels.csv
+*.mp4
+*.mov
+*.avi
+*.mkv
+legacy/archive_20260616_previous_direction/outputs/
+legacy/archive_20260616_previous_direction/data/**/*.mp4
+legacy/archive_20260616_previous_direction/data/**/*.mov
+legacy/archive_20260616_previous_direction/data/**/*.avi
+legacy/archive_20260616_previous_direction/data/**/*.mkv
 
 .idea/
 .vscode/
