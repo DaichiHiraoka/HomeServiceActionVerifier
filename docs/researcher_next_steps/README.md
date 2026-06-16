@@ -7,6 +7,8 @@
 - [TODO.md](TODO.md): 実験前に進める作業リスト。
 - [filming_plan.md](filming_plan.md): 正常動画と違反動画の撮影計画。
 - [claude_output.md](claude_output.md): Claude デスクトップアプリで表示されていた研究評価・改善案の記録。
+- [codex_work_instructions.md](codex_work_instructions.md): 循環構造と空虚な比較を改善するための実装指示。
+- [research_experiment_guide.html](research_experiment_guide.html): リポジトリ構成、実験内容、研究比較として成立する理由を説明する HTML ガイド。
 
 ## Immediate Focus
 

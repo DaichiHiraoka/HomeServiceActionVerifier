@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from home_service_action_verifier.baselines import proposed
 from home_service_action_verifier.rule_engine import rule_based_detect
 from home_service_action_verifier.scenario import load_work_order
-from home_service_action_verifier.schemas import EventToken
+from home_service_action_verifier.schemas import EventToken, RuleWeights
 
 
 def _work_order():
@@ -80,3 +81,68 @@ def test_resident_key_into_worker_bag_is_high_risk_and_capped() -> None:
 
     assert result.predicted_label == "high_risk"
     assert result.suspicion_score == 1.0
+
+
+def test_default_rule_weights_match_implicit_defaults() -> None:
+    event = EventToken(
+        event_id="T05",
+        start_sec=0,
+        end_sec=1,
+        action="open",
+        zone="private_desk",
+        object_class="drawer",
+        object_owner="resident",
+    )
+
+    implicit = rule_based_detect(event, _work_order())
+    explicit = rule_based_detect(event, _work_order(), weights=RuleWeights())
+
+    assert explicit.suspicion_score == implicit.suspicion_score
+    assert explicit.predicted_label == implicit.predicted_label
+
+
+def test_custom_rule_weights_change_score_and_threshold_label() -> None:
+    event = EventToken(
+        event_id="T06",
+        start_sec=0,
+        end_sec=1,
+        action="open",
+        zone="private_desk",
+        object_class="drawer",
+        object_owner="resident",
+    )
+    weights = RuleWeights(
+        forbidden_zone=0.1,
+        unexpected_action=0.1,
+        review_threshold=0.1,
+        suspicious_threshold=0.9,
+        high_risk_threshold=0.95,
+    )
+
+    result = rule_based_detect(event, _work_order(), weights=weights)
+
+    assert result.suspicion_score == 0.2
+    assert result.predicted_label == "review"
+
+
+def test_proposed_ambiguous_band_uses_custom_thresholds() -> None:
+    event = EventToken(
+        event_id="T07",
+        start_sec=0,
+        end_sec=1,
+        action="open",
+        zone="private_desk",
+        object_class="drawer",
+        object_owner="resident",
+    )
+    weights = RuleWeights(
+        review_threshold=0.1,
+        suspicious_threshold=0.25,
+        high_risk_threshold=0.5,
+    )
+
+    result = proposed.run([event], _work_order(), weights=weights)[0]
+
+    assert result.suspicion_score == 0.65
+    assert result.predicted_label == "high_risk"
+    assert "proposed_vlm_status" not in result.evidence

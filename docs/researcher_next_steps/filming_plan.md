@@ -9,6 +9,49 @@
 
 Video B には同一動作・異文脈ペア(`photo_context`、`bag_context`)の正常側と違反側を両方入れる。`same_action_different_context_accuracy` は同一アノテーションファイル内でペアを結ぶため、Video B 単体でこの指標を評価できる。
 
+## 撮影者が用意すべき機材
+
+### 必須機材
+
+- 固定撮影できるカメラまたはスマートフォン1台。
+  - 横向き撮影。
+  - 1280x720 以上。可能なら 1920x1080 で撮影し、評価用に 1280x720 へ変換してもよい。
+  - 30fps 程度で十分。手ぶれ補正よりも固定を優先する。
+- 三脚、スマートフォンホルダー、または机上固定用のクランプ。
+- 充電器、モバイルバッテリー、延長コード。
+- 5分以上の空き容量がある記録媒体。
+- 秒単位で確認できるタイマーまたはストップウォッチ。
+- 撮影開始を合わせるためのスレート代わりの紙。
+  - 例: `Video A router_trial_normal_001`、`Video B router_trial_violation_001` と大きく書く。
+  - 冒頭で紙を1秒見せるか、手を1回叩いて同期点を作る。
+- 床や机に領域を示す養生テープ、マスキングテープ、付箋。
+  - `router_shelf`
+  - `work_area`
+  - `private_desk`
+  - `tool_bag_area`
+- 印刷または別端末で表示するイベント表。
+  - このファイルの Video A / Video B の表を撮影者と作業者が見られる状態にする。
+
+### 小道具
+
+- 作業対象:
+  - ルーター本体。
+  - ルーター型番ラベル。実機ラベルを使う場合は個人情報や契約情報を隠す。研究用には `DUMMY ROUTER LABEL` などの模擬ラベルを貼る。
+  - LANケーブル。
+  - 電源アダプタ。
+- 作業者の持ち物:
+  - 工具バッグ。
+  - ドライバー。
+  - 作業者用スマートフォン。写真撮影動作を見せるために使う。実際に写真を保存する必要はない。
+- 住人側の模擬私物:
+  - 模擬書類。本文には `DUMMY DOCUMENT`、`SAMPLE` などだけを書き、実名・住所・電話番号・口座番号を入れない。
+  - 模擬の鍵。実鍵を使わない。キーホルダーや番号札にも個人情報を付けない。
+  - 模擬財布または小箱。
+  - 引き出し役の箱、ケース、または机の引き出し。
+- プライバシー対策:
+  - 室内の実在書類、郵便物、画面、写真、表札、カレンダーの予定欄を隠す紙や布。
+  - 協力者同意の確認メモ。
+
 ## カメラ・セット準備
 
 - 固定カメラ1台、1280x720 推奨(`configs/zones/router_repair_zones.json` の前提解像度)。
@@ -21,19 +64,87 @@ Video B には同一動作・異文脈ペア(`photo_context`、`bag_context`)の
 - 小道具: ルーター(型番ラベル付き)、LANケーブル、工具バッグ、ドライバー、模擬書類、模擬の鍵、スマートフォン(撮影動作用)。
 - 顔を中心に写さない。模擬物体のみ使用し、実在の私的情報を写さない。協力者の同意を得る。
 
+## 撮影前チェック
+
+撮影者は本番前に以下を確認する。
+
+1. カメラを固定し、撮影中に画角が動かないことを確認する。
+2. 横向きで撮影し、画面内に `router_shelf`、`work_area`、`private_desk`、`tool_bag_area` が同時に入っていることを確認する。
+3. ルーター、工具バッグ、模擬書類、模擬鍵が、それぞれのイベントで手元と物体の動きが見える位置にあることを確認する。
+4. 露出とピントをできるだけ固定する。スマートフォンの場合は長押しで AE/AF ロックできる機種ならロックする。
+5. 10秒のテスト撮影を行い、再生して以下を確認する。
+   - 手元の動作が見える。
+   - 模擬書類の内容が研究用のダミーである。
+   - 実在の個人情報が画面内にない。
+   - 顔が中心に大きく写っていない。
+   - 音声が入っても問題ない環境である。不要なら無音でもよい。
+6. `configs/zones/router_repair_zones.json` の前提は 1280x720 なので、撮影解像度が違う場合は後で bbox を実画角に合わせて更新する前提で撮る。
+7. 作業者に「表の event_id 順に演じる」「失敗したら途中編集せず最初から撮り直す」と共有する。
+
+## 撮影の詳細手順
+
+### 共通手順
+
+1. 撮影者はカメラを固定し、録画ボタンを押す。
+2. 冒頭1秒でスレート紙を画面に入れる。
+   - Video A: `router_trial_normal_001`
+   - Video B: `router_trial_violation_001`
+3. スレートを下げ、何も動かさない初期状態を5秒程度撮る。
+4. 作業者は下のイベント表どおりに動く。撮影者は原則として声で指示しない。必要な場合は撮影外から小声で「次」とだけ合図する。
+5. 各イベントの間に0.5秒から1秒の間を作る。連続して動きすぎると、後で `start_sec` / `end_sec` を切りにくくなる。
+6. 物を持つ、置く、撮る、開ける動作は、手と対象物が画面内に入った状態で行う。
+7. 違反イベントでも実在の私物は使わない。必ず模擬書類、模擬鍵、模擬財布を使う。
+8. 途中でイベント順を間違えた場合、または物体が画面外に出た場合は、その動画を採用せず最初から撮り直す。
+9. 録画終了後、すぐに再生して全イベントが見えるか確認する。
+10. 採用動画を `video.mp4` として保存し、対応するフォルダへ置く。
+
+### Video A の撮影手順
+
+1. `A00 initial_state`: 作業者を画面外に出し、ルーター、工具バッグ置き場、私物机が見える状態を6秒撮る。
+2. `A01 enter`: 作業者が入室し、工具バッグを `tool_bag_area` または `work_area` の見える位置に置く。
+3. `A02 inspect`: 作業者が `router_shelf` の前に移動し、ルーターと配線を見る。指差しや軽い確認動作を入れる。
+4. `A03 unplug_cable`: LANケーブルを一度抜き、すぐに戻す。ケーブルとルーター端子が見えるようにゆっくり行う。
+5. `A04 photograph`: 作業者用スマートフォンをルーター型番ラベルに向け、撮影する動作を行う。画面上は「ルーターを撮っている」と分かればよく、実際の保存は不要。
+6. `A05 place_into_container`: 作業者所有のドライバーを手に取り、工具バッグへ戻す。住人側の物に触れない。
+7. `A06 exit`: 作業者が工具バッグを持って退出する。退出後に1秒程度、空の画面を残してから録画を止める。
+
+### Video B の撮影手順
+
+1. `B00 initial_state`: Video A と同じ画角で、無人の初期状態を5秒撮る。
+2. `B01 enter`: 作業者が入室し、工具バッグを置く。
+3. `B02 photograph`: 正常文脈として、ルーター型番ラベルをスマートフォンで撮影する動作を行う。
+4. `B03 open`: 作業者が `private_desk` に移動し、模擬の引き出しまたは箱を開ける。ここから要件外行動であることが分かるように、ルーターから明確に離れた場所で行う。
+5. `B04 photograph`: 模擬書類にスマートフォンを向け、撮影する動作を行う。書類にはダミー文字だけを使う。
+6. `B05 pick_up`: 模擬鍵を手に取る。鍵を持った手が画面内に残るようにする。
+7. `B06 place_into_container`: 模擬鍵を作業者の工具バッグに入れる。バッグの口と鍵が見えるようにゆっくり行う。
+8. `B07 place_into_container`: 正常文脈として、作業者所有のドライバーを工具バッグに戻す。`B06` と同じ `place_into_container` だが、対象物の所有者が違うことが比較点になる。
+9. `B08 exit`: 作業者が退出する。退出後に1秒程度、空の画面を残してから録画を止める。
+
+## 撮影後の確認
+
+撮影者は各動画について以下を記録・確認する。
+
+- 動画ファイル名を最終的に `video.mp4` にする。
+- 採用した動画の実測イベント時刻をメモし、下の `annotations.jsonl` 雛形の `start_sec` / `end_sec` を更新する。
+- 画角がテスト時から変わっていないか確認する。変わった場合はその動画専用に `zones.json` の bbox を測り直す。
+- `Video A` は正常作業だけで構成されているか確認する。
+- `Video B` は `photo_context` と `bag_context` の正常側・違反側が両方入っているか確認する。
+- 実在の個人情報、顔の大写し、画面内の通知、住所や氏名が写っていないか確認する。
+- 採用しないテイクは、混同を避けるため `rejected_take_001.mp4` のように別名へ退避する。
+
 ## Video A: 正常作業(約50秒)
 
 すべて Rule-Based スコア 0.0 → `normal` 予測になる想定。
 
-| event_id | 目安時間 | action | zone | 内容 |
-| --- | --- | --- | --- | --- |
-| A00 | 0–6s | `initial_state` | work_area | 無人の初期状態 |
-| A01 | 6–12s | `enter` | entrance | 入室し工具バッグを置く |
-| A02 | 12–20s | `inspect` | router_shelf | ルーターと配線を確認 |
-| A03 | 20–27s | `unplug_cable` | router_shelf | LANケーブルを抜き差しして確認 |
-| A04 | 27–34s | `photograph` (target: `router_label`) | router_shelf | ルーター型番を撮影 ※pair: photo_context |
-| A05 | 34–42s | `place_into_container` | work_area | 作業者所有ドライバーを工具バッグに戻す ※pair: bag_context |
-| A06 | 42–50s | `exit` | entrance | 退出 |
+| event_id | 目安時間 | action                                    | zone         | 内容                                                       |
+| -------- | -------- | ----------------------------------------- | ------------ | ---------------------------------------------------------- |
+| A00      | 0–6s    | `initial_state`                         | work_area    | 無人の初期状態                                             |
+| A01      | 6–12s   | `enter`                                 | entrance     | 入室し工具バッグを置く                                     |
+| A02      | 12–20s  | `inspect`                               | router_shelf | ルーターと配線を確認                                       |
+| A03      | 20–27s  | `unplug_cable`                          | router_shelf | LANケーブルを抜き差しして確認                              |
+| A04      | 27–34s  | `photograph` (target: `router_label`) | router_shelf | ルーター型番を撮影 ※pair: photo_context                   |
+| A05      | 34–42s  | `place_into_container`                  | work_area    | 作業者所有ドライバーを工具バッグに戻す ※pair: bag_context |
+| A06      | 42–50s  | `exit`                                  | entrance     | 退出                                                       |
 
 アノテーション雛形(撮影後に実測時刻へ更新する):
 
@@ -51,17 +162,17 @@ Video B には同一動作・異文脈ペア(`photo_context`、`bag_context`)の
 
 正常イベントの間に違反イベントを挟み、ペアの両文脈を1本に収める。
 
-| event_id | 目安時間 | action | zone | 正解ラベル | 内容 |
-| --- | --- | --- | --- | --- | --- |
-| B00 | 0–5s | `initial_state` | work_area | normal | 無人の初期状態 |
-| B01 | 5–10s | `enter` | entrance | normal | 入室し工具バッグを置く |
-| B02 | 10–16s | `photograph` (target: `router_label`) | router_shelf | normal | ルーター型番を撮影 ※pair: photo_context |
-| B03 | 16–22s | `open` | private_desk | suspicious | 私物机の引き出しを開ける ※pair: drawer_context |
-| B04 | 22–28s | `photograph` (target: `document`) | private_desk | suspicious | 私的書類を撮影 ※pair: photo_context |
-| B05 | 28–34s | `pick_up` | private_desk | suspicious | 住人所有の鍵を手に取る |
-| B06 | 34–40s | `place_into_container` | work_area | high_risk | 鍵を作業者バッグに入れる ※pair: bag_context |
-| B07 | 40–46s | `place_into_container` | work_area | normal | 作業者所有ドライバーをバッグに戻す ※pair: bag_context |
-| B08 | 46–52s | `exit` | entrance | normal | 退出 |
+| event_id | 目安時間 | action                                    | zone         | 正解ラベル | 内容                                                   |
+| -------- | -------- | ----------------------------------------- | ------------ | ---------- | ------------------------------------------------------ |
+| B00      | 0–5s    | `initial_state`                         | work_area    | normal     | 無人の初期状態                                         |
+| B01      | 5–10s   | `enter`                                 | entrance     | normal     | 入室し工具バッグを置く                                 |
+| B02      | 10–16s  | `photograph` (target: `router_label`) | router_shelf | normal     | ルーター型番を撮影 ※pair: photo_context               |
+| B03      | 16–22s  | `open`                                  | private_desk | suspicious | 私物机の引き出しを開ける ※pair: drawer_context        |
+| B04      | 22–28s  | `photograph` (target: `document`)     | private_desk | suspicious | 私的書類を撮影 ※pair: photo_context                   |
+| B05      | 28–34s  | `pick_up`                               | private_desk | suspicious | 住人所有の鍵を手に取る                                 |
+| B06      | 34–40s  | `place_into_container`                  | work_area    | high_risk  | 鍵を作業者バッグに入れる ※pair: bag_context           |
+| B07      | 40–46s  | `place_into_container`                  | work_area    | normal     | 作業者所有ドライバーをバッグに戻す ※pair: bag_context |
+| B08      | 46–52s  | `exit`                                  | entrance     | normal     | 退出                                                   |
 
 アノテーション雛形:
 

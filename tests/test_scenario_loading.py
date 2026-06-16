@@ -2,7 +2,13 @@ from __future__ import annotations
 
 import pytest
 
-from home_service_action_verifier.scenario import load_event_tokens, load_work_order, load_zone_config
+from home_service_action_verifier.scenario import (
+    load_event_tokens,
+    load_work_order,
+    load_zone_config,
+    validate_vocabulary,
+)
+from home_service_action_verifier.schemas import EventToken
 
 
 def test_load_router_repair_work_order() -> None:
@@ -37,3 +43,51 @@ def test_load_annotations_rejects_invalid_label(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="Invalid event label"):
         load_event_tokens(path)
+
+
+def test_validate_vocabulary_reports_unknown_values() -> None:
+    work_order = load_work_order("configs/scenarios/router_repair.json")
+    zone_config = load_zone_config("configs/zones/router_repair_zones.json")
+    events = [
+        EventToken(
+            event_id="BAD",
+            start_sec=0,
+            end_sec=1,
+            action="dance",
+            zone="garage",
+            object_class="vase",
+        ),
+        EventToken(
+            event_id="PHOTO",
+            start_sec=1,
+            end_sec=2,
+            action="photograph",
+            zone="work_area",
+            object_class="router",
+        ),
+    ]
+
+    warnings = validate_vocabulary(events, work_order, zone_config)
+
+    assert any("unknown zone" in warning for warning in warnings)
+    assert any("no bbox" in warning for warning in warnings)
+    assert any("object_class" in warning for warning in warnings)
+    assert any("action" in warning for warning in warnings)
+    assert any("missing target_object" in warning for warning in warnings)
+
+
+def test_validate_vocabulary_accepts_consistent_event() -> None:
+    work_order = load_work_order("configs/scenarios/router_repair.json")
+    zone_config = load_zone_config("configs/zones/router_repair_zones.json")
+    events = [
+        EventToken(
+            event_id="OK",
+            start_sec=0,
+            end_sec=1,
+            action="inspect",
+            zone="router_shelf",
+            object_class="router",
+        )
+    ]
+
+    assert validate_vocabulary(events, work_order, zone_config) == []

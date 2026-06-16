@@ -149,6 +149,28 @@ class WorkOrder(BaseModel):
     high_risk_objects: list[str] = Field(default_factory=list)
 
 
+class RuleWeights(BaseModel):
+    """Configurable rule weights and label thresholds."""
+
+    forbidden_zone: float = Field(default=0.4, ge=0.0)
+    resident_private_object: float = Field(default=0.4, ge=0.0)
+    resident_object_action: float = Field(default=0.3, ge=0.0)
+    resident_into_worker_container: float = Field(default=0.8, ge=0.0)
+    disallowed_photo_target: float = Field(default=0.5, ge=0.0)
+    unexpected_action: float = Field(default=0.25, ge=0.0)
+    high_risk_object: float = Field(default=0.2, ge=0.0)
+    review_threshold: float = Field(default=0.2, ge=0.0, le=1.0)
+    suspicious_threshold: float = Field(default=0.5, ge=0.0, le=1.0)
+    high_risk_threshold: float = Field(default=0.8, ge=0.0, le=1.0)
+
+    @model_validator(mode="after")
+    def validate_threshold_order(self) -> "RuleWeights":
+        if not self.review_threshold < self.suspicious_threshold < self.high_risk_threshold:
+            msg = "RuleWeights requires review_threshold < suspicious_threshold < high_risk_threshold"
+            raise ValueError(msg)
+        return self
+
+
 class ZoneDefinition(BaseModel):
     zone_id: str
     type: str
@@ -211,6 +233,11 @@ class EventEvaluationMetrics(BaseModel):
     average_precision: float | None = None
     false_alarm_rate: float
     same_action_different_context_accuracy: float | None = None
+    same_action_different_context_binary_accuracy: float | None = None
+    review_rate: float = 0.0
+    num_review_predictions: int = 0
+    num_events_without_prediction: int = 0
+    num_predictions_without_event: int = 0
     num_events: int
     num_positive_events: int
     num_negative_events: int

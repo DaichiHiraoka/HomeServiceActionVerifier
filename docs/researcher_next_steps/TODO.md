@@ -4,6 +4,7 @@
 
 ## 今すべきこと
 
+0. `codex_work_instructions.md` の優先度1〜6を Codex に実装させ、循環構造と空虚な比較を撮影前に解消する。
 1. README と docs を UTF-8 で開き、研究目的、制約、実験手順が読めることを確認する。
 2. `filming_plan.md` の撮影計画に従い、約50秒の動画を2本撮影する(正常版 `router_trial_normal_001` と要件外行動版 `router_trial_violation_001`)。撮影後は `uploadfiles/` 配下の実験用フォルダに配置する。
 3. 実動画に合わせて `data/real/router_trial_001_annotations.example.jsonl` をコピーし、実測の `start_sec`、`end_sec`、`action`、`zone`、`object_class`、`object_owner`、`label` に更新する。

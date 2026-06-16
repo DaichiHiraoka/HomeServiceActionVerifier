@@ -1,0 +1,353 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Home Service Action Verifier 研究・実験構成ガイド</title>
+<style>
+  :root {
+    --ink: #1f2933;
+    --sub: #52606d;
+    --accent: #1f4e79;
+    --accent-light: #eaf1f8;
+    --line: #cbd2d9;
+    --bg: #ffffff;
+    --warn-bg: #fdf6ec;
+    --warn-line: #e0c9a6;
+    --ok-bg: #eef5ee;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    color: var(--ink);
+    background: var(--bg);
+    font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", sans-serif;
+    font-size: 15px;
+    line-height: 1.85;
+  }
+  .page { max-width: 920px; margin: 0 auto; padding: 32px 28px 64px; }
+  header.title-block {
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 16px;
+    margin-bottom: 28px;
+  }
+  h1 { font-size: 26px; margin: 0 0 6px; color: var(--accent); line-height: 1.4; }
+  .subtitle { color: var(--sub); font-size: 14px; margin: 0; }
+  h2 {
+    font-size: 19px;
+    color: var(--accent);
+    border-left: 5px solid var(--accent);
+    padding-left: 10px;
+    margin: 40px 0 12px;
+  }
+  h3 { font-size: 16px; margin: 22px 0 8px; color: var(--ink); }
+  p { margin: 8px 0; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 12px 0 16px;
+    font-size: 13.5px;
+  }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 7px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--accent-light); font-weight: 600; white-space: nowrap; }
+  code, .mono {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 0.92em;
+    background: #f1f4f7;
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  pre.tree {
+    background: #f7f9fb;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 14px 16px;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    overflow-x: auto;
+  }
+  .keybox {
+    background: var(--accent-light);
+    border: 1px solid #b9cde2;
+    border-radius: 4px;
+    padding: 12px 16px;
+    margin: 14px 0;
+  }
+  .keybox .label { font-weight: 700; color: var(--accent); }
+  .notebox {
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-line);
+    border-radius: 4px;
+    padding: 12px 16px;
+    margin: 14px 0;
+  }
+  .okbox {
+    background: var(--ok-bg);
+    border: 1px solid #b7ccb7;
+    border-radius: 4px;
+    padding: 12px 16px;
+    margin: 14px 0;
+  }
+  .pipeline { margin: 18px 0; }
+  .pipe-row { display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap; }
+  .pipe-step {
+    flex: 1 1 150px;
+    border: 1.5px solid var(--accent);
+    border-radius: 6px;
+    padding: 10px 12px;
+    background: #fff;
+    min-width: 150px;
+  }
+  .pipe-step .step-title { font-weight: 700; color: var(--accent); font-size: 13.5px; }
+  .pipe-step .step-body { font-size: 12.5px; color: var(--sub); line-height: 1.6; }
+  .pipe-arrow {
+    align-self: center;
+    color: var(--accent);
+    font-size: 20px;
+    font-weight: 700;
+    flex: 0 0 auto;
+  }
+  ul, ol { margin: 8px 0 8px 4px; padding-left: 22px; }
+  li { margin: 4px 0; }
+  .small { font-size: 12.5px; color: var(--sub); }
+  footer {
+    margin-top: 48px;
+    border-top: 1px solid var(--line);
+    padding-top: 12px;
+    font-size: 12px;
+    color: var(--sub);
+  }
+  @media print {
+    body { font-size: 11.5pt; }
+    .page { max-width: none; padding: 0; }
+    h2 { page-break-after: avoid; }
+    table, .pipe-step, .keybox, .notebox, .okbox, pre.tree { page-break-inside: avoid; }
+    a { color: var(--ink); text-decoration: none; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header class="title-block">
+  <h1>Home Service Action Verifier 研究・実験構成ガイド</h1>
+  <p class="subtitle">卒業研究用 PoC ― リポジトリ構成・実験設計・手法比較の解説資料(2026年6月版)</p>
+</header>
+
+<h2>1. このリポジトリは何か</h2>
+<p>
+Home Service Action Verifier は、一般家庭内で<strong>許可済みの作業者</strong>(例: Wi-Fi ルーターの修理担当者)が作業を行う場面を対象に、
+<strong>「依頼された作業の範囲から外れた行動」をイベント単位で検出できるか</strong>を検証する研究用 PoC です。
+動画全体をブラックボックスで分類するのではなく、イベント単位の構造化情報(EventToken)を、許可内容を機械可読化した作業票(WorkOrder)と照合し、
+各イベントを <code>normal</code> / <code>review</code> / <code>suspicious</code> / <code>high_risk</code> の4ラベルで評価します。
+</p>
+<div class="keybox">
+  <span class="label">研究の問い:</span>
+  許可された作業の範囲から外れた行動を、<strong>どの情報で</strong>検出できるか。
+  特に、作業票・所有者・許可エリア・撮影対象といった文脈情報のうち、どれが判定に寄与するかを数値比較で明らかにする。
+</div>
+<p>
+本システムは犯罪や不正行為を断定しません。顔認識・個人識別・人物属性推定・自動通報は実装せず、raw video を外部 API へ送信しない設計を制約として明文化しています。
+出力はあくまで「人手確認に回すべき許可外行動の候補」です。
+</p>
+
+<h2>2. 研究スコープ ― 何を評価し、何を評価しないか</h2>
+<p>
+逸脱検出の全体問題は、(a) <strong>映像からイベント情報を抽出できるか(知覚)</strong>と、
+(b) <strong>イベント情報が与えられたとき逸脱を判定できるか(推論)</strong>の2つに分かれます。
+</p>
+<div class="okbox">
+  本研究の評価対象は <strong>(b) 推論</strong> です。イベント情報(EventToken)が与えられた条件下での判定可能性を評価し、
+  映像からの抽出(物体検出・行動認識・所有者推定)は対象外とします。
+  このスコープ宣言により、「どの情報が判定に必要か」という問いに評価を集中させます。
+</div>
+<p class="small">
+補足: したがって rule_based / token_only / アブレーション変種は動画ファイルを入力として使用しません。
+動画はデモ・記録・将来の VLM 実験用です(README 制限事項に明記)。
+</p>
+
+<h2>3. リポジトリ構成</h2>
+<pre class="tree">HomeServiceActionVerifier/
+├── src/home_service_action_verifier/   # 本体パッケージ
+│   ├── schemas.py            # 全データモデル(EventToken, WorkOrder, RuleWeights など)
+│   ├── scenario.py           # 作業票・ゾーン・注釈の読込と語彙整合性チェック
+│   ├── rule_engine.py        # Rule-Based 判定とアブレーション変種
+│   ├── baselines/            # token_only, proposed, vlm_direct(比較枠)
+│   ├── event_evaluation.py   # イベント単位評価(指標計算・CSV/MD 出力)
+│   ├── cli.py                # analyze-scenario / evaluate-events / compare-methods
+│   └── ui.py                 # Streamlit 実験画面(uploadfiles のフォルダ単位読込)
+├── configs/
+│   ├── scenarios/router_repair.json    # 作業票(許可・禁止の定義)
+│   ├── zones/router_repair_zones.json  # ゾーン座標(固定カメラ前提の bbox)
+│   └── rules/default_rule_weights.json # ルール重み・閾値のデフォルト
+├── data/real/                # イベント注釈の例(JSONL)
+├── uploadfiles/              # UI 用実験フォルダ(work_order / zones / annotations / video)
+├── tests/                    # pytest(回帰保証・手法分離・指標検証)
+├── docs/                     # 研究プロトコル・シナリオ定義・実装計画・次ステップ
+└── outputs/                  # 実行結果(runs / evaluations、タイムスタンプ付き)</pre>
+
+<h3>主要モジュールの役割</h3>
+<table>
+  <tr><th>モジュール</th><th>役割</th></tr>
+  <tr><td><code>schemas.py</code></td><td>pydantic による型定義。<code>EventToken</code>(イベント情報)、<code>WorkOrder</code>(作業票)、<code>ZoneConfig</code>(ゾーン座標)、<code>DetectionResult</code>(判定結果)、<code>EventEvaluationMetrics</code>(評価指標)、<code>RuleWeights</code>(重み・閾値設定)を一元管理する。</td></tr>
+  <tr><td><code>scenario.py</code></td><td>JSON / JSONL の読込と検証。注釈の <code>label</code> を <code>ground_truth_label</code> に正規化し、ゾーン・物体・行動の語彙不一致を非致命的な警告として報告する(typo の素通り防止)。</td></tr>
+  <tr><td><code>rule_engine.py</code></td><td>基準手法。EventToken を WorkOrder と照合して加点式スコア(0.0〜1.0)を計算し、閾値で4ラベルへ変換する。アブレーションフラグで特定情報に依存する規則だけを停止できる。</td></tr>
+  <tr><td><code>baselines/token_only.py</code></td><td>対照手法。WorkOrder を意図的に参照せず、EventToken の汎用情報のみで判定する。「許可文脈なしで何が判定できないか」を示す。</td></tr>
+  <tr><td><code>event_evaluation.py</code></td><td>イベント単位の評価。二値指標(suspicious / high_risk を positive)、同一動作・異文脈ペアの判別精度、review 率、予測欠落・余分予測の集計を行う。</td></tr>
+  <tr><td><code>cli.py</code></td><td>実験の入口。解析(<code>analyze-scenario</code>)、評価(<code>evaluate-events</code>)、複数手法比較(<code>compare-methods</code>)を提供し、使用した重み・語彙警告を <code>config.json</code> に記録して再現性を担保する。</td></tr>
+</table>
+
+<h2>4. 実験パイプライン</h2>
+<div class="pipeline">
+  <div class="pipe-row">
+    <div class="pipe-step">
+      <div class="step-title">① 入力(3ファイル)</div>
+      <div class="step-body">annotations.jsonl(イベント注釈)/ work_order.json(作業票)/ zones.json(ゾーン座標)</div>
+    </div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step">
+      <div class="step-title">② 読込・検証</div>
+      <div class="step-body">scenario.py が EventToken / WorkOrder / ZoneConfig へ変換し、語彙整合性を警告チェック</div>
+    </div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step">
+      <div class="step-title">③ 判定</div>
+      <div class="step-body">rule_engine(+アブレーション)と token_only が各イベントをスコア化し DetectionResult を生成</div>
+    </div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step">
+      <div class="step-title">④ 評価</div>
+      <div class="step-body">event_evaluation が正解ラベルと照合し EventEvaluationMetrics を算出</div>
+    </div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step">
+      <div class="step-title">⑤ 出力</div>
+      <div class="step-body">per_method_metrics.csv / per_event.csv / confusion_matrix.csv / summary.md / config.json</div>
+    </div>
+  </div>
+</div>
+
+<h3>データモデルの関係</h3>
+<table>
+  <tr><th>モデル</th><th>内容</th><th>実験上の位置づけ</th></tr>
+  <tr><td><code>EventToken</code></td><td>1イベントの構造化情報。時刻、行動(action)、ゾーン、物体クラス、所有者(object_owner / container_owner)、撮影対象、正解ラベル、同一動作ペア ID。</td><td>判定の入力。本研究では人手注釈で与える(知覚は対象外)。</td></tr>
+  <tr><td><code>WorkOrder</code></td><td>許可ゾーン・禁止ゾーン・作業対象物・作業者所有物・住人私物・許可行動・撮影許可対象・高リスク物体の定義。</td><td>「許可された作業の範囲」を機械可読化した文脈情報。</td></tr>
+  <tr><td><code>ZoneConfig</code></td><td>画面内ゾーンの矩形座標(固定カメラ前提)。</td><td>実動画導入時にゾーン判定へ接続する空間定義。</td></tr>
+  <tr><td><code>DetectionResult</code></td><td>手法名、予測ラベル、疑いスコア、判定理由、根拠。</td><td>各手法の出力。理由列により判定根拠を説明可能にする。</td></tr>
+  <tr><td><code>EventEvaluationMetrics</code></td><td>精度系指標、ペア判別精度、review 率、欠落件数などの評価結果一式。</td><td>手法間比較の単位。</td></tr>
+</table>
+
+<h2>5. 手法比較 ― なぜこれが「研究としての比較」になるのか</h2>
+<p>
+各手法は<strong>「使える情報の量」だけが異なり、判定の枠組みは共通</strong>です。
+そのため手法間の性能差は、そのまま「その情報の寄与」として解釈できます。
+これは「どの情報で検出できるか」という研究の問いを、そのまま実験条件に写像した構成です。
+</p>
+<table>
+  <tr><th>手法</th><th>使う情報</th><th>比較で分かること</th></tr>
+  <tr><td><code>token_only</code></td><td>EventToken のみ(作業票なし)</td><td>許可文脈なしの限界。撮影対象の許可・禁止ゾーンを判定できず、文脈不明イベントは review に逃げる。</td></tr>
+  <tr><td><code>rule_based</code></td><td>EventToken + WorkOrder(全情報)</td><td>基準線。作業票との照合で文脈を判定した場合の性能。</td></tr>
+  <tr><td><code>rule_based_no_owner</code></td><td>所有者情報を除く</td><td>所有者情報の寄与。「住人の物を作業者バッグへ」の検出が崩れるか。</td></tr>
+  <tr><td><code>rule_based_no_zone</code></td><td>禁止ゾーン情報を除く</td><td>許可エリア情報の寄与。禁止エリア系イベントの recall が落ちるか。</td></tr>
+  <tr><td><code>rule_based_no_photo_target</code></td><td>撮影許可対象を除く</td><td>撮影対象情報の寄与。型番撮影と書類撮影の区別が消えるか。</td></tr>
+  <tr><td><code>rule_based_no_action_allowlist</code></td><td>許可行動リストを除く</td><td>「作業票にない行動」加点の寄与。</td></tr>
+  <tr><td><code>proposed</code></td><td>将来: 曖昧イベントのみ VLM 補助</td><td>現状は rule_based と同一結果のため、主比較から除外(VLM 接続後に追加)。</td></tr>
+  <tr><td><code>vlm_direct_full / roi</code></td><td>将来: イベント窓フレーム</td><td>比較枠のみ。未接続(明示的に未実装エラー)。</td></tr>
+</table>
+<p>
+検証する仮説(research_protocol §6.5):
+<strong>H1</strong> owner 情報を除くと bag_context ペアの判別精度が低下する。
+<strong>H2</strong> zone 情報を除くと禁止エリア系イベントの recall が低下する。
+<strong>H3</strong> photo_target 情報を除くと photo_context ペアの判別精度が低下する。
+</p>
+
+<h2>6. なぜこの設計が必要か</h2>
+
+<h3>6.1 同じ動作でも文脈で意味が変わる</h3>
+<p>
+本研究の中心的な難しさは、<strong>行動ラベルだけでは正常と逸脱を区別できない</strong>ことです。
+注釈では同一動作・異文脈のイベントを <code>same_action_pair_id</code> で結び、ペア単位で判別精度を測ります。
+</p>
+<table>
+  <tr><th>ペア</th><th>同じ動作</th><th>正常な文脈</th><th>逸脱の文脈</th><th>区別に必要な情報</th></tr>
+  <tr><td><code>photo_context</code></td><td>photograph(撮影)</td><td>ルーター型番ラベルを撮影</td><td>住人の私的書類を撮影</td><td>撮影許可対象リスト(作業票)</td></tr>
+  <tr><td><code>bag_context</code></td><td>place_into_container(収納)</td><td>作業者の工具を工具バッグへ戻す</td><td>住人の鍵を作業者バッグへ入れる</td><td>物体と収納先の所有者情報</td></tr>
+  <tr><td><code>drawer_context</code></td><td>open(開ける)</td><td>―(作業対象の操作)</td><td>作業対象外の私物机の引き出しを開ける</td><td>許可・禁止エリア情報</td></tr>
+</table>
+<p>
+token_only はこれらのペアを構造的に判別できません(例: どちらの撮影も同スコアで review になる)。
+rule_based が判別でき、対応するアブレーション変種で判別が崩れることを示せれば、
+「その情報が判別に必要である」という主張が実験的に支持されます。
+</p>
+
+<h3>6.2 循環構造を避けるための2つの仕掛け</h3>
+<div class="notebox">
+<p style="margin-top:0">
+<strong>問題:</strong> 正解ラベルの判断根拠(所有者・ゾーンなど)と、検知器の入力フィールドを<strong>同じ人が同じ注釈行に書く</strong>と、
+検知器が正解の導出根拠をそのまま読むことになり、高精度が設計上の必然になってしまいます(循環構造)。
+</p>
+<p style="margin-bottom:0"><strong>対策:</strong></p>
+<ol style="margin-bottom:0">
+  <li><strong>ラベル付与手続きの分離</strong>(research_protocol §3.5): 正解ラベルは<strong>動画のみ</strong>を見て「依頼された作業の範囲か」を判断して付与し、作業票や EventToken の他フィールドは参照しない。トークン記入とラベル付与は別パスで行い、付与日を記録する。</li>
+  <li><strong>差分で測るアブレーション</strong>: 絶対精度は循環の影響を受けうるが、「情報を抜いたときの性能低下幅」という<strong>条件間の差分</strong>は、その情報の寄与そのものであり、循環の影響を受けない。</li>
+</ol>
+</div>
+
+<h2>7. ラベルとスコアの定義</h2>
+<table>
+  <tr><th>ラベル</th><th>意味</th><th>二値評価での扱い</th></tr>
+  <tr><td><code>normal</code></td><td>作業票・許可エリア・作業対象と整合する通常行動</td><td>negative</td></tr>
+  <tr><td><code>review</code></td><td>低中スコアで人手確認に回す行動</td><td>デフォルト除外(3ポリシーすべて報告)</td></tr>
+  <tr><td><code>suspicious</code></td><td>作業票や許可文脈から外れる可能性が高い行動</td><td>positive</td></tr>
+  <tr><td><code>high_risk</code></td><td>住人所有物を作業者バッグへ入れる等、強い確認が必要な行動</td><td>positive</td></tr>
+</table>
+<p>
+Rule-Based のスコアは加点式(禁止ゾーン +0.4、住人私物 +0.4、住人所有物の操作 +0.3、住人物の作業者側収納 +0.8、許可外撮影 +0.5、作業票にない行動 +0.25、高リスク物体 +0.2)で 1.0 を上限とし、
+閾値 0.2 / 0.5 / 0.8 で4ラベルへ変換します。重みと閾値は <code>RuleWeights</code> として設定ファイル化されており、デフォルト値の根拠は今後の感度分析で検証する位置づけです。
+</p>
+
+<h2>8. 評価指標の読み方</h2>
+<table>
+  <tr><th>指標</th><th>意味と注意点</th></tr>
+  <tr><td><code>accuracy / precision / recall / f1 / false_alarm_rate</code></td><td>二値評価(suspicious・high_risk = positive)。confusion matrix とともに出力。</td></tr>
+  <tr><td><code>same_action_different_context_accuracy</code></td><td>同一動作・異文脈ペア内のイベントを正しく分けられた割合(4クラス完全一致基準)。深刻度の取り違え(suspicious と high_risk の混同)も不正解に数える。</td></tr>
+  <tr><td><code>same_action_different_context_binary_accuracy</code></td><td>同ペア指標の二値基準版。「検出できたか」と「深刻度を当てたか」を分離して解釈するために両方を報告する。</td></tr>
+  <tr><td><code>review_rate</code></td><td>予測が review になった割合(分母は注釈イベントに対応した予測のみ)。review はデフォルトで二値評価から除外されるため、<strong>不確実な判定へ逃げた量</strong>を別途可視化する。token_only はこの値が高くなる設計である。</td></tr>
+  <tr><td><code>num_events_without_prediction</code> / <code>num_predictions_without_event</code></td><td>予測が欠落したイベント数と、注釈に存在しない余分な予測数。欠落は coverage の問題として集計し、ペア指標の正誤計算からは除外する(黙殺しない)。</td></tr>
+  <tr><td><code>roc_auc / average_precision</code></td><td>二値評価対象が30件以上、かつスコアのユニーク値が4種類以上の場合のみ出力。小規模・離散スコアでは統計的に意味を持たないため、初期デモでは件数・per-event 表・confusion matrix を中心に解釈する。</td></tr>
+</table>
+
+<h2>9. 現在の限界</h2>
+<ul>
+  <li><strong>知覚層は未実装:</strong> 実動画からの物体検出・手検出・所有者推定は stub であり、EventToken は人手注釈で与える。特に所有者情報(object_owner)の実システムでの出所(事前の私物登録・持込申告など)は設計上の今後課題。</li>
+  <li><strong>データ規模:</strong> 1シナリオ(router_repair)・台本付きの少数イベントであり、統計的な性能主張はできない。本段階は「実証」ではなく「実現可能性確認」と位置づける。</li>
+  <li><strong>台本化された逸脱:</strong> 実際の逸脱行動はより目立たないはずで、分布が異なる。</li>
+  <li><strong>VLM 比較は未接続:</strong> proposed の VLM 補助、vlm_direct 系は比較枠のみ。</li>
+  <li><strong>重み・閾値の根拠:</strong> RuleWeights のデフォルト値は暫定であり、感度分析が未実施。</li>
+  <li><strong>ゾーン定義:</strong> 固定矩形の仮座標であり、実動画の画角に合わせた調整が必要。</li>
+</ul>
+
+<h2>10. 今後の課題</h2>
+<ol>
+  <li>約50秒の動画を2本撮影する(正常版 / 要件外行動を含む版)。撮影計画は <code>docs/researcher_next_steps/filming_plan.md</code> に定義済み。違反版にはペアの両文脈を含め、ペア指標を1本で評価できる構成とする。</li>
+  <li>アブレーション比較(H1〜H3)を実行し、情報寄与の差分を主結果としてまとめる。</li>
+  <li>トークンへのノイズ注入(所有者・ゾーンの確率的誤り)で、上流認識の不完全さに対する頑健性を評価する。</li>
+  <li>イベント窓フレームを用いた VLM-direct を接続し、「構造化トークン+作業票」対「生映像+VLM」の対比を行う。</li>
+  <li>関連研究(映像異常検知・行動認識・コンプライアンス検査・VLM 映像理解)との位置づけを整理する。</li>
+  <li>監視される側である作業者の同意・誤検知の不利益など、作業者側の倫理的配慮を文書化する。</li>
+</ol>
+
+<footer>
+  Home Service Action Verifier ― 研究・実験構成ガイド(docs/researcher_next_steps/research_experiment_guide.html)。
+  本資料は研究用 PoC の説明であり、実運用の防犯システムとしての利用を想定しない。検知結果は許可外行動の「候補」であり、犯罪や不正行為を断定しない。
+</footer>
+
+</div>
+</body>
+</html>

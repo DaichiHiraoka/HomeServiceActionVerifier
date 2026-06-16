@@ -1,0 +1,12 @@
+{
+  "forbidden_zone": 0.4,
+  "resident_private_object": 0.4,
+  "resident_object_action": 0.3,
+  "resident_into_worker_container": 0.8,
+  "disallowed_photo_target": 0.5,
+  "unexpected_action": 0.25,
+  "high_risk_object": 0.2,
+  "review_threshold": 0.2,
+  "suspicious_threshold": 0.5,
+  "high_risk_threshold": 0.8
+}
