@@ -26,4 +26,41 @@ Treat the archive as historical material only. Open it only when the user explic
 
 ## Next Step
 
-Build the new project structure around skeleton time series data, local object tracking/cropping, sequence labeling, transition/anomaly scoring, early warning timing, and uncertainty-aware evaluation.
+The current desktop prototype is implemented as a Python/Tkinter app.
+
+Run the desktop app:
+
+```powershell
+uv run home-service-verifier-app
+```
+
+Run the sample analysis without opening the GUI:
+
+```powershell
+uv run home-service-verifier-app --context sample_data/task_context.json --skeleton sample_data/skeleton.csv --objects sample_data/object_tracks.csv
+```
+
+Run the normal router-work trial generated from `data/raw_videos/IMG_7852.mp4`:
+
+```powershell
+uv run home-service-verifier-app --context data/trials/router_normal_img_7852/context.json --skeleton data/trials/router_normal_img_7852/skeleton.csv --objects data/trials/router_normal_img_7852/object_tracks.csv
+```
+
+Regenerate that trial from the raw video:
+
+```powershell
+uv run --no-project --python 3.11 --with "mediapipe==0.10.21" --with opencv-python-headless python scripts/prepare_router_trial.py --video data/raw_videos/IMG_7852.mp4 --out data/trials/router_normal_img_7852 --sample-seconds 1.0
+```
+
+Input file locations:
+
+```text
+data/contexts/       task context JSON files
+data/skeleton/       skeleton CSV files
+data/object_tracks/  object tracking CSV files
+data/object_crops/   local object crop images
+data/raw_videos/     raw videos, not used directly by the current app
+data/trials/         per-trial grouped inputs
+```
+
+The active implementation is structured around skeleton time series data, local object tracking/cropping metadata, sequence labeling, transition/anomaly scoring, early warning timing, and uncertainty-aware evaluation.

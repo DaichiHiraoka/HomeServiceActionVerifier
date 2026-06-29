@@ -1,0 +1,18 @@
+[project]
+name = "home-service-action-verifier"
+version = "0.2.0"
+description = "Desktop prototype for skeleton and local-object-context suspicious action verification."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.scripts]
+home-service-verifier-app = "home_service_action_verifier.app:main"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

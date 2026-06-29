@@ -1,0 +1,18 @@
+{
+  "task_name": "unattended_home_repair_demo",
+  "work_areas": ["entrance", "work_area", "tool_shelf"],
+  "private_areas": ["private_shelf", "private_desk"],
+  "target_objects": ["router", "tool_box", "screwdriver"],
+  "worker_objects": ["tool_box", "screwdriver"],
+  "private_objects": ["wallet", "key", "resident_phone"],
+  "high_risk_objects": ["wallet", "key"],
+  "thresholds": {
+    "touch_distance": 75,
+    "return_distance": 60,
+    "movement_distance": 70,
+    "body_distance": 90,
+    "review_threshold": 0.25,
+    "suspicious_threshold": 0.55,
+    "high_risk_threshold": 0.8
+  }
+}

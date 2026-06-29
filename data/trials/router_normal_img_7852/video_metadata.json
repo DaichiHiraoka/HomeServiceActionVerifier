@@ -1,0 +1,18 @@
+{
+  "width": 1920,
+  "height": 1080,
+  "fps": 29.97002997002997,
+  "frame_count": 4303,
+  "duration_seconds": 143.57676666666666,
+  "source_video": "data/raw_videos/IMG_7852.mp4",
+  "sample_seconds": 1.0,
+  "router_bbox": {
+    "x": 475,
+    "y": 245,
+    "w": 250,
+    "h": 285
+  },
+  "router_zone": "router_work_area",
+  "skeleton_rows": 128,
+  "object_track_rows": 144
+}

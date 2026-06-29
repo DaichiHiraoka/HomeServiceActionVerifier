@@ -1,0 +1,41 @@
+{
+  "task_name": "router_normal_img_7852",
+  "work_areas": [
+    "router_work_area",
+    "desk_area",
+    "tool_area"
+  ],
+  "private_areas": [
+    "private_storage",
+    "private_desk"
+  ],
+  "target_objects": [
+    "router",
+    "lan_cable",
+    "power_cable"
+  ],
+  "worker_objects": [
+    "screwdriver",
+    "tape",
+    "tool_bag"
+  ],
+  "private_objects": [
+    "wallet",
+    "key",
+    "resident_phone"
+  ],
+  "high_risk_objects": [
+    "wallet",
+    "key",
+    "resident_phone"
+  ],
+  "thresholds": {
+    "touch_distance": 180,
+    "return_distance": 80,
+    "movement_distance": 100,
+    "body_distance": 450,
+    "review_threshold": 0.25,
+    "suspicious_threshold": 0.55,
+    "high_risk_threshold": 0.8
+  }
+}
