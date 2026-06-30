@@ -1,0 +1,28 @@
+[project]
+name = "homeserviceactionverifier"
+version = "0.1.0"
+description = "Experimental skeleton and object-grip detector for home service action verification."
+readme = "README.md"
+requires-python = ">=3.10,<3.13"
+dependencies = [
+    "mediapipe",
+    "numpy",
+    "opencv-python",
+    "ultralytics",
+]
+
+[project.scripts]
+skeleton-grip-detector = "grip_detector.app:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pyflakes",
+    "pytest",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["grip_detector"]

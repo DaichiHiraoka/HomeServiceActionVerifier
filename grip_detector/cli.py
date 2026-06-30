@@ -1,0 +1,392 @@
+from __future__ import annotations
+
+import argparse
+import urllib.parse
+from pathlib import Path
+
+from .constants import BBox, DEFAULT_MODEL_PATH
+from .models import DetectorConfig
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+def prompt_source() -> str:
+    """
+    CLI引数で映像入力が指定されていない場合、実行後に入力させます。
+    """
+
+    print("映像入力ソースを指定してください。")
+    print("  Webカメラ: 0")
+    print("  動画ファイル: C:\\path\\input.mp4")
+    print("  IP Webcam: 192.168.1.20:8080 または http://192.168.1.20:8080/video")
+
+    try:
+        source_text = input("映像入力ソース> ").strip()
+    except EOFError as error:
+        raise RuntimeError(
+            "--source が未指定で、実行後入力も読み取れませんでした。"
+        ) from error
+
+    if not source_text:
+        print("未入力のため Webカメラ 0 を使います。")
+        return "0"
+
+    return source_text
+
+
+def normalize_stream_source(source_text: str) -> str:
+    """
+    IP Webcam向けの省略入力をOpenCVで開けるURLへ補正します。
+    """
+
+    stripped = source_text.strip()
+
+    if not stripped:
+        return "0"
+
+    # Windowsの絶対パス C:\... はURL扱いしません。
+    if len(stripped) >= 3 and stripped[1] == ":" and stripped[2] in ("\\", "/"):
+        return stripped
+
+    parsed = urllib.parse.urlparse(stripped)
+
+    if parsed.scheme in {"http", "https"}:
+        if parsed.path in {"", "/"}:
+            return urllib.parse.urlunparse(parsed._replace(path="/video"))
+        return stripped
+
+    # IP Webcamでは host:port 形式を入力することが多いので /video を補います。
+    if ":" in stripped and "/" not in stripped and "\\" not in stripped:
+        return f"http://{stripped}/video"
+
+    return stripped
+
+
+def parse_source(source_text: str) -> int | str:
+    """
+    source が整数文字列ならカメラ番号、その他なら動画パスまたはURLとして扱います。
+    """
+
+    stripped = normalize_stream_source(source_text)
+
+    if stripped.lstrip("+-").isdigit():
+        return int(stripped)
+
+    return stripped
+
+
+def parse_bbox_argument(bbox_text: str) -> BBox:
+    """x,y,w,h 形式の文字列をOpenCV矩形へ変換します。"""
+
+    parts = [part.strip() for part in bbox_text.split(",")]
+
+    if len(parts) != 4:
+        raise ValueError("--object-roi は x,y,w,h の4整数で指定してください。")
+
+    try:
+        x, y, width, height = (int(part) for part in parts)
+    except ValueError as error:
+        raise ValueError("--object-roi は x,y,w,h の4整数で指定してください。") from error
+
+    if width <= 0 or height <= 0:
+        raise ValueError("--object-roi の width と height は1以上にしてください。")
+
+    return (x, y, width, height)
+
+
+def parse_csv_tokens(value: str | None) -> tuple[str, ...] | None:
+    """カンマ区切りのクラス名またはIDを正規化します。"""
+
+    if value is None:
+        return None
+
+    tokens = tuple(
+        token.strip().lower()
+        for token in value.split(",")
+        if token.strip()
+    )
+    return tokens or None
+
+
+def build_argument_parser() -> argparse.ArgumentParser:
+    """コマンドライン引数を定義します。"""
+
+    parser = argparse.ArgumentParser(
+        description=(
+            "手の21点骨格と追跡物体から、物体を握っているかをリアルタイム判定します。"
+        )
+    )
+
+    parser.add_argument(
+        "--source",
+        default=None,
+        help=(
+            "カメラ番号、動画ファイル、IP Webcam URL。"
+            "未指定なら起動後に入力します。"
+        ),
+    )
+    parser.add_argument(
+        "--model",
+        type=Path,
+        default=DEFAULT_MODEL_PATH,
+        help=(
+            "Hand Landmarkerモデルの保存先。存在しなければ公式配布元から取得します。"
+        ),
+    )
+    parser.add_argument(
+        "--max-hands",
+        type=int,
+        default=2,
+        help="同時に検出する最大手数。既定値: 2",
+    )
+    parser.add_argument(
+        "--mirror",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="表示だけ左右反転します。推論座標は反転しません。既定値: 有効",
+    )
+    parser.add_argument(
+        "--camera-width",
+        type=int,
+        default=1280,
+        help="カメラ入力時に要求する横解像度。既定値: 1280",
+    )
+    parser.add_argument(
+        "--camera-height",
+        type=int,
+        default=720,
+        help="カメラ入力時に要求する縦解像度。既定値: 720",
+    )
+    parser.add_argument(
+        "--enter-threshold",
+        type=float,
+        default=0.50,
+        help="把持開始閾値。既定値: 0.50",
+    )
+    parser.add_argument(
+        "--exit-threshold",
+        type=float,
+        default=0.36,
+        help="把持解除閾値。既定値: 0.36",
+    )
+    parser.add_argument(
+        "--enter-delay",
+        type=float,
+        default=0.18,
+        help="把持開始に必要な継続秒数。既定値: 0.18",
+    )
+    parser.add_argument(
+        "--exit-delay",
+        type=float,
+        default=0.15,
+        help="把持解除に必要な継続秒数。既定値: 0.15",
+    )
+    parser.add_argument(
+        "--ema-time-constant",
+        type=float,
+        default=0.10,
+        help="スコア平滑化EMAの時定数秒。既定値: 0.10",
+    )
+    parser.add_argument(
+        "--detection-confidence",
+        type=float,
+        default=0.55,
+        help="MediaPipeの手検出信頼度閾値。既定値: 0.55",
+    )
+    parser.add_argument(
+        "--presence-confidence",
+        type=float,
+        default=0.55,
+        help="MediaPipeの手存在信頼度閾値。既定値: 0.55",
+    )
+    parser.add_argument(
+        "--tracking-confidence",
+        type=float,
+        default=0.55,
+        help="MediaPipeの追跡信頼度閾値。既定値: 0.55",
+    )
+    parser.add_argument(
+        "--object-tracking",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="OpenCVによる物体検出・追跡を有効化します。既定値: 有効",
+    )
+    parser.add_argument(
+        "--object-detector",
+        choices=("yolo", "motion", "hybrid"),
+        default="yolo",
+        help=(
+            "物体候補の検出方式。yolo: YOLO検出、motion: 従来の背景差分、"
+            "hybrid: YOLOと背景差分を併用。既定値: yolo"
+        ),
+    )
+    parser.add_argument(
+        "--object-roi",
+        default=None,
+        help="初期追跡物体の矩形 x,y,w,h。静止物体を追う場合に指定します。",
+    )
+    parser.add_argument(
+        "--select-object",
+        action="store_true",
+        help="初回フレームで追跡対象をマウス選択します。",
+    )
+    parser.add_argument(
+        "--max-objects",
+        type=int,
+        default=6,
+        help="同時に追跡する最大物体数。既定値: 6",
+    )
+    parser.add_argument(
+        "--object-min-area",
+        type=float,
+        default=500.0,
+        help="自動検出で採用する最小物体面積px。既定値: 500",
+    )
+    parser.add_argument(
+        "--object-contact-threshold",
+        type=float,
+        default=0.42,
+        help="手と物体が接触しているとみなす目安スコア。既定値: 0.42",
+    )
+    parser.add_argument(
+        "--object-match-threshold",
+        type=float,
+        default=0.58,
+        help="テンプレート追跡の採用閾値。既定値: 0.58",
+    )
+    parser.add_argument(
+        "--yolo-model",
+        default="yolo11n.pt",
+        help="Ultralytics YOLOモデル。例: yolo11n.pt または custom.pt。既定値: yolo11n.pt",
+    )
+    parser.add_argument(
+        "--yolo-confidence",
+        type=float,
+        default=0.35,
+        help="YOLO検出の信頼度閾値。既定値: 0.35",
+    )
+    parser.add_argument(
+        "--yolo-iou",
+        type=float,
+        default=0.45,
+        help="YOLO NMSのIoU閾値。既定値: 0.45",
+    )
+    parser.add_argument(
+        "--yolo-imgsz",
+        type=int,
+        default=640,
+        help="YOLO推論画像サイズ。既定値: 640",
+    )
+    parser.add_argument(
+        "--yolo-classes",
+        default=None,
+        help="検出対象クラス名またはIDのカンマ区切り。未指定ならperson以外を使います。",
+    )
+    parser.add_argument(
+        "--yolo-ignore-classes",
+        default="person",
+        help="除外するYOLOクラス名またはIDのカンマ区切り。既定値: person",
+    )
+    parser.add_argument(
+        "--csv",
+        type=Path,
+        default=None,
+        help="指定した場合、フレームごとの特徴量と判定をCSV保存します。",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="指定した場合、描画済み動画を保存します。",
+    )
+    parser.add_argument(
+        "--no-window",
+        action="store_true",
+        help="画面表示を無効化します。動画処理やCSV生成向けです。",
+    )
+
+    return parser
+
+
+def validate_arguments(
+    parser: argparse.ArgumentParser,
+    args: argparse.Namespace,
+) -> DetectorConfig:
+    """CLI引数の値域と相互関係を検証します。"""
+
+    probability_arguments = {
+        "--enter-threshold": args.enter_threshold,
+        "--exit-threshold": args.exit_threshold,
+        "--detection-confidence": args.detection_confidence,
+        "--presence-confidence": args.presence_confidence,
+        "--tracking-confidence": args.tracking_confidence,
+        "--object-contact-threshold": args.object_contact_threshold,
+        "--object-match-threshold": args.object_match_threshold,
+        "--yolo-confidence": args.yolo_confidence,
+        "--yolo-iou": args.yolo_iou,
+    }
+
+    for argument_name, value in probability_arguments.items():
+        if not 0.0 <= value <= 1.0:
+            parser.error(f"{argument_name} は 0.0～1.0 で指定してください。")
+
+    if args.enter_threshold <= args.exit_threshold:
+        parser.error(
+            "--enter-threshold は --exit-threshold より大きくしてください。"
+        )
+
+    if args.enter_delay < 0.0 or args.exit_delay < 0.0:
+        parser.error("遅延時間は0秒以上で指定してください。")
+
+    if args.ema_time_constant <= 0.0:
+        parser.error("--ema-time-constant は0より大きくしてください。")
+
+    if args.max_hands < 1:
+        parser.error("--max-hands は1以上で指定してください。")
+
+    if args.camera_width < 1 or args.camera_height < 1:
+        parser.error("カメラ解像度は1以上で指定してください。")
+
+    if args.max_objects < 1:
+        parser.error("--max-objects は1以上で指定してください。")
+
+    if args.object_min_area < 1.0:
+        parser.error("--object-min-area は1以上で指定してください。")
+
+    if args.yolo_imgsz < 32:
+        parser.error("--yolo-imgsz は32以上で指定してください。")
+
+    if args.object_roi is not None:
+        try:
+            parse_bbox_argument(args.object_roi)
+        except ValueError as error:
+            parser.error(str(error))
+
+    if args.select_object and args.no_window:
+        parser.error("--select-object は --no-window と同時に使えません。")
+
+    if args.no_window and args.output is None and args.csv is None:
+        parser.error(
+            "--no-window を使う場合は --output または --csv を指定してください。"
+        )
+
+    return DetectorConfig(
+        enter_threshold=args.enter_threshold,
+        exit_threshold=args.exit_threshold,
+        enter_delay_sec=args.enter_delay,
+        exit_delay_sec=args.exit_delay,
+        ema_time_constant_sec=args.ema_time_constant,
+        object_tracking_enabled=args.object_tracking,
+        object_detector=args.object_detector,
+        object_min_area=args.object_min_area,
+        object_max_tracks=args.max_objects,
+        object_template_match_threshold=args.object_match_threshold,
+        object_contact_threshold=args.object_contact_threshold,
+        yolo_model=args.yolo_model,
+        yolo_confidence=args.yolo_confidence,
+        yolo_iou=args.yolo_iou,
+        yolo_imgsz=args.yolo_imgsz,
+        yolo_classes=parse_csv_tokens(args.yolo_classes),
+        yolo_ignore_classes=parse_csv_tokens(args.yolo_ignore_classes) or (),
+    )

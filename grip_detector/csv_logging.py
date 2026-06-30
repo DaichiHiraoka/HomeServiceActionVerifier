@@ -1,0 +1,111 @@
+from __future__ import annotations
+
+from typing import Any, List
+
+from .models import GripDecision
+
+# ---------------------------------------------------------------------------
+# CSVロギング
+# ---------------------------------------------------------------------------
+
+CSV_HEADER = [
+    "timestamp_sec",
+    "frame_index",
+    "hand_id",
+    "handedness",
+    "handedness_score",
+    "is_grasping",
+    "mode",
+    "object_raw_score",
+    "pose_raw_score",
+    "smoothed_score",
+    "object_id",
+    "object_bbox_x",
+    "object_bbox_y",
+    "object_bbox_w",
+    "object_bbox_h",
+    "object_contact_score",
+    "object_overlap_score",
+    "object_fingertip_inside_ratio",
+    "power_score",
+    "pinch_score",
+    "thumb_opposition",
+    "pinch_proximity",
+    "index_curl",
+    "middle_curl",
+    "ring_curl",
+    "pinky_curl",
+    "index_closure",
+    "middle_closure",
+    "ring_closure",
+    "pinky_closure",
+    "index_contraction",
+    "middle_contraction",
+    "ring_contraction",
+    "pinky_contraction",
+    "index_pip_angle_deg",
+    "middle_pip_angle_deg",
+    "ring_pip_angle_deg",
+    "pinky_pip_angle_deg",
+    "index_dip_angle_deg",
+    "middle_dip_angle_deg",
+    "ring_dip_angle_deg",
+    "pinky_dip_angle_deg",
+    "palm_width",
+]
+
+
+def decision_to_csv_row(
+    timestamp_sec: float,
+    frame_index: int,
+    decision: GripDecision,
+) -> List[Any]:
+    """GripDecisionをCSVの1行へ変換します。"""
+
+    features = decision.features
+
+    return [
+        f"{timestamp_sec:.6f}",
+        frame_index,
+        decision.hand_id,
+        decision.handedness,
+        f"{decision.handedness_score:.6f}",
+        int(decision.is_grasping),
+        decision.mode,
+        f"{decision.raw_score:.6f}",
+        f"{decision.pose_score:.6f}",
+        f"{decision.smoothed_score:.6f}",
+        decision.object_id,
+        "" if decision.object_bbox is None else decision.object_bbox[0],
+        "" if decision.object_bbox is None else decision.object_bbox[1],
+        "" if decision.object_bbox is None else decision.object_bbox[2],
+        "" if decision.object_bbox is None else decision.object_bbox[3],
+        f"{decision.object_contact_score:.6f}",
+        f"{decision.object_overlap_score:.6f}",
+        f"{decision.object_fingertip_inside_ratio:.6f}",
+        f"{features.power_score:.6f}",
+        f"{features.pinch_score:.6f}",
+        f"{features.thumb_opposition:.6f}",
+        f"{features.pinch_proximity:.6f}",
+        f"{features.finger_curl['index']:.6f}",
+        f"{features.finger_curl['middle']:.6f}",
+        f"{features.finger_curl['ring']:.6f}",
+        f"{features.finger_curl['pinky']:.6f}",
+        f"{features.finger_closure['index']:.6f}",
+        f"{features.finger_closure['middle']:.6f}",
+        f"{features.finger_closure['ring']:.6f}",
+        f"{features.finger_closure['pinky']:.6f}",
+        f"{features.finger_contraction['index']:.6f}",
+        f"{features.finger_contraction['middle']:.6f}",
+        f"{features.finger_contraction['ring']:.6f}",
+        f"{features.finger_contraction['pinky']:.6f}",
+        f"{features.pip_angles_deg['index']:.3f}",
+        f"{features.pip_angles_deg['middle']:.3f}",
+        f"{features.pip_angles_deg['ring']:.3f}",
+        f"{features.pip_angles_deg['pinky']:.3f}",
+        f"{features.dip_angles_deg['index']:.3f}",
+        f"{features.dip_angles_deg['middle']:.3f}",
+        f"{features.dip_angles_deg['ring']:.3f}",
+        f"{features.dip_angles_deg['pinky']:.3f}",
+        f"{features.palm_width:.8f}",
+    ]

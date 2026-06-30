@@ -27,3 +27,34 @@ Treat the archive as historical material only. Open it only when the user explic
 ## Next Step
 
 Build the new project structure around skeleton time series data, local object tracking/cropping, sequence labeling, transition/anomaly scoring, early warning timing, and uncertainty-aware evaluation.
+
+## Running the Current Detector
+
+The active prototype is packaged as `grip_detector`. The old script path is
+kept as a compatibility wrapper.
+
+```powershell
+uv run .\grip_detector\app.py
+uv run .\お試し\skeleton_grip_detector.py
+uv run skeleton-grip-detector
+uv run python -m grip_detector
+```
+
+The project is pinned to Python 3.12 because the current detector depends on
+MediaPipe.
+
+YOLO is the default object detector. To restrict detections to specific COCO
+classes, pass comma-separated class names or class IDs:
+
+```powershell
+uv run .\grip_detector\app.py --yolo-classes "cell phone,book,bottle,cup"
+```
+
+Use the old motion detector only when needed:
+
+```powershell
+uv run .\grip_detector\app.py --object-detector motion
+```
+
+For target objects outside the pretrained COCO classes, use `--yolo-model` with
+a custom trained `.pt` model.

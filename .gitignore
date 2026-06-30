@@ -41,6 +41,7 @@ outputs/
 *.mov
 *.avi
 *.mkv
+*.pt
 legacy/archive_20260616_previous_direction/outputs/
 legacy/archive_20260616_previous_direction/data/**/*.mp4
 legacy/archive_20260616_previous_direction/data/**/*.mov
