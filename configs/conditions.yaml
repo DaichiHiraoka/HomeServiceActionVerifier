@@ -1,0 +1,12 @@
+A:
+  groups: [SKEL_POINT]
+B:
+  groups: [SKEL_SEQ]
+C:
+  groups: [OBJ, REL]
+D:
+  groups: [SKEL_SEQ, OBJ, REL]
+E:
+  groups: [SKEL_SEQ, OBJ, REL, CTX]
+F:
+  groups: [SKEL_SEQ, OBJ, REL, CTX, CROP]

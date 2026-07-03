@@ -1,0 +1,40 @@
+[project]
+name = "home-service-action-verifier"
+version = "0.1.0"
+description = "Research experiment system for home-service action verification."
+requires-python = ">=3.12"
+dependencies = [
+    "mediapipe>=0.10",
+    "opencv-python>=4.9",
+    "numpy>=1.26",
+    "pandas>=2.2",
+    "pyarrow>=16.0",
+    "scikit-learn>=1.5",
+    "scikit-image>=0.24",
+    "lightgbm>=4.5",
+    "matplotlib>=3.9",
+    "pyyaml>=6.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.5",
+]
+
+[project.scripts]
+hsav = "home_service_action_verifier.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/home_service_action_verifier"]
+
+[tool.ruff]
+line-length = 100
+extend-exclude = ["legacy", "kirby_icon", "お試し"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

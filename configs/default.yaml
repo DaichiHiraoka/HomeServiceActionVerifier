@@ -1,0 +1,15 @@
+pose:
+  model_complexity: 1
+  min_detection_confidence: 0.5
+  max_gap_frames: 15
+windows:
+  ctx_seconds: [0, 1, 3, 5, 10]
+  contact_source: gt
+features:
+  hold_dist_threshold: 0.08
+  crop_scale: 1.5
+  crop_max_px: 128
+eval:
+  seeds: [0, 1, 2, 3, 4]
+  bootstrap_n: 1000
+  target_fpr: 0.20

@@ -37,6 +37,7 @@ ENV/
 htmlcov/
 
 outputs/
+data/
 *.mp4
 *.mov
 *.avi
