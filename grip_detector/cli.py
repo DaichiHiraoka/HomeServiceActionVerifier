@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import urllib.parse
 from pathlib import Path
+from typing import NoReturn
 
 from .constants import BBox, DEFAULT_MODEL_PATH
 from .models import DetectorConfig
@@ -13,7 +14,26 @@ from .models import DetectorConfig
 
 def prompt_source() -> str:
     """
-    CLI引数で映像入力が指定されていない場合、実行後に入力させます。
+    CLI引数で映像入力が指定されていない場合、GUIでIP WebcamのURLを作ります。
+    """
+
+    try:
+        source_text = prompt_ip_webcam_source_gui()
+    except RuntimeError:
+        raise
+    except Exception as error:
+        print(f"GUI入力を開けないため、コンソール入力へ切り替えます: {error}")
+        source_text = prompt_source_console()
+
+    if not source_text:
+        _raise_source_cancelled()
+
+    return source_text
+
+
+def prompt_source_console() -> str:
+    """
+    GUIを開けない環境向けのコンソール入力フォールバックです。
     """
 
     print("映像入力ソースを指定してください。")
@@ -35,12 +55,212 @@ def prompt_source() -> str:
     return source_text
 
 
+def _raise_source_cancelled() -> NoReturn:
+    raise RuntimeError("映像入力ソースの指定がキャンセルされました。")
+
+
+def prompt_ip_webcam_source_gui() -> str:
+    """
+    IP WebcamのIPアドレスとポートをGUIで入力します。
+
+    Enter:
+        3回目までは "." を末尾へ挿入し、4回目は ":" を挿入します。
+        ":" の後にポート番号が入っている状態では入力を確定します。
+
+    Esc:
+        キャンセルします。
+    """
+
+    import tkinter as tk
+    from tkinter import ttk
+
+    root = tk.Tk()
+    root.title("IP Webcam input")
+    root.resizable(False, False)
+
+    result: dict[str, str | None] = {"source": None}
+    value = tk.StringVar()
+    status = tk.StringVar(value="例: 192⏎168⏎1⏎20⏎8080")
+
+    def current_text() -> str:
+        return value.get().strip()
+
+    def normalized_current_text() -> str:
+        return normalize_ip_webcam_source_text(current_text())
+
+    def cancel() -> None:
+        result["source"] = None
+        root.destroy()
+
+    def accept() -> None:
+        source = normalized_current_text()
+        if not source:
+            status.set("IPアドレスとポートを入力してください。Escでキャンセルできます。")
+            return
+
+        if ":" not in source:
+            status.set("ポート番号が未入力です。Enterで ':' を追加してください。")
+            return
+
+        host, port = source.rsplit(":", 1)
+        if host.count(".") != 3 or not port.isdigit():
+            status.set("形式は 192.168.1.20:8080 です。")
+            return
+
+        result["source"] = source
+        root.destroy()
+
+    def insert_next_separator() -> None:
+        text = current_text()
+        if not text:
+            status.set("まずIPアドレスの数字を入力してください。")
+            return
+
+        normalized = normalize_ip_webcam_source_text(text)
+        if normalized.endswith((".", ":")):
+            return
+
+        if ":" in normalized:
+            _replace_entry_text(normalized)
+            accept()
+            return
+
+        separator = "." if normalized.count(".") < 3 else ":"
+        _replace_entry_text(f"{normalized}{separator}")
+
+        if separator == ".":
+            status.set("次のIP区切りを入力してください。")
+        else:
+            status.set("ポート番号を入力し、Enterで開始します。")
+
+    def _replace_entry_text(text: str) -> None:
+        value.set(text)
+        entry.icursor(tk.END)
+
+    def append_digit(digit: str) -> None:
+        _replace_entry_text(f"{current_text()}{digit}")
+        status.set("数字ボタンまたはキーボードで入力できます。")
+
+    def backspace() -> None:
+        _replace_entry_text(current_text()[:-1])
+        status.set("1文字削除しました。")
+
+    def clear() -> None:
+        _replace_entry_text("")
+        status.set("入力をクリアしました。")
+
+    def on_return(_event: object) -> str:
+        insert_next_separator()
+        return "break"
+
+    def on_escape(_event: object) -> str:
+        cancel()
+        return "break"
+
+    frame = ttk.Frame(root, padding=16)
+    frame.grid(row=0, column=0, sticky="nsew")
+
+    ttk.Label(frame, text="IP Webcam のIPアドレスとポート").grid(
+        row=0,
+        column=0,
+        sticky="w",
+    )
+    ttk.Label(
+        frame,
+        text="キーボードまたは数字ボタンで入力し、Enterで '.' と ':' を順に挿入します。",
+        foreground="#555555",
+    ).grid(row=1, column=0, sticky="w", pady=(4, 10))
+
+    entry = ttk.Entry(frame, textvariable=value, width=34)
+    entry.grid(row=2, column=0, sticky="ew")
+    entry.bind("<Return>", on_return)
+    entry.bind("<Escape>", on_escape)
+    root.bind("<Escape>", on_escape)
+
+    ttk.Label(frame, textvariable=status, foreground="#555555").grid(
+        row=3,
+        column=0,
+        sticky="w",
+        pady=(8, 12),
+    )
+
+    keypad = ttk.Frame(frame)
+    keypad.grid(row=4, column=0, sticky="ew")
+
+    for row_index, row_digits in enumerate((("7", "8", "9"), ("4", "5", "6"), ("1", "2", "3"))):
+        for column_index, digit in enumerate(row_digits):
+            ttk.Button(
+                keypad,
+                text=digit,
+                command=lambda digit=digit: append_digit(digit),
+                width=7,
+            ).grid(row=row_index, column=column_index, padx=3, pady=3, sticky="nsew")
+
+    ttk.Button(keypad, text="C", command=clear, width=7).grid(
+        row=3,
+        column=0,
+        padx=3,
+        pady=3,
+        sticky="nsew",
+    )
+    ttk.Button(keypad, text="0", command=lambda: append_digit("0"), width=7).grid(
+        row=3,
+        column=1,
+        padx=3,
+        pady=3,
+        sticky="nsew",
+    )
+    ttk.Button(keypad, text="⌫", command=backspace, width=7).grid(
+        row=3,
+        column=2,
+        padx=3,
+        pady=3,
+        sticky="nsew",
+    )
+    ttk.Button(keypad, text="Enter  . / :", command=insert_next_separator).grid(
+        row=4,
+        column=0,
+        columnspan=3,
+        padx=3,
+        pady=(3, 8),
+        sticky="ew",
+    )
+
+    for column_index in range(3):
+        keypad.columnconfigure(column_index, weight=1)
+
+    button_row = ttk.Frame(frame)
+    button_row.grid(row=5, column=0, sticky="e")
+    ttk.Button(button_row, text="キャンセル", command=cancel).grid(row=0, column=0, padx=(0, 8))
+    ttk.Button(button_row, text="開始", command=accept).grid(row=0, column=1)
+
+    root.protocol("WM_DELETE_WINDOW", cancel)
+    entry.focus_set()
+    root.update_idletasks()
+    root.minsize(root.winfo_width(), root.winfo_height())
+    root.mainloop()
+
+    if result["source"] is None:
+        _raise_source_cancelled()
+
+    return result["source"]
+
+
+def normalize_ip_webcam_source_text(source_text: str) -> str:
+    """GUI入力されたIP Webcamの省略表記を host:port へ正規化します。"""
+
+    text = source_text.strip()
+    text = text.replace("，", ".").replace(",", ".").replace("：", ":")
+    text = text.replace(" ", "").replace("\t", "")
+    return text
+
+
 def normalize_stream_source(source_text: str) -> str:
     """
     IP Webcam向けの省略入力をOpenCVで開けるURLへ補正します。
     """
 
-    stripped = source_text.strip()
+    stripped = source_text.strip().replace("：", ":")
 
     if not stripped:
         return "0"
@@ -123,7 +343,7 @@ def build_argument_parser() -> argparse.ArgumentParser:
         default=None,
         help=(
             "カメラ番号、動画ファイル、IP Webcam URL。"
-            "未指定なら起動後に入力します。"
+            "未指定なら起動後にGUIでIP/ポートを入力します。"
         ),
     )
     parser.add_argument(
