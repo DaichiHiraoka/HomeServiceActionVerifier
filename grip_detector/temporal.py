@@ -16,7 +16,7 @@ class GripTemporalFilter:
     ヒステリシス:
         開始閾値 > 解除閾値
 
-    これにより、閾値付近で OPEN と GRASP が高速反転する現象を抑えます。
+    これにより、閾値付近で通常状態と把持中移動状態が高速反転する現象を抑えます。
     """
 
     def __init__(self, config: DetectorConfig) -> None:
@@ -59,7 +59,7 @@ class GripTemporalFilter:
         state.last_update_time = timestamp_sec
         state.last_seen_time = timestamp_sec
 
-        # 現在が非把持状態の場合、開始閾値を一定時間超えたか確認します。
+        # 現在が非把持中移動状態の場合、開始閾値を一定時間超えたか確認します。
         if not state.is_grasping:
             state.exit_candidate_since = None
 
@@ -78,7 +78,7 @@ class GripTemporalFilter:
                 state.enter_candidate_since = None
                 state.mode = "NONE"
 
-        # 現在が把持状態の場合、解除閾値を一定時間下回ったか確認します。
+        # 現在が把持中移動状態の場合、解除閾値を一定時間下回ったか確認します。
         else:
             state.enter_candidate_since = None
 
@@ -107,7 +107,7 @@ class GripTemporalFilter:
         """
         一定時間見失った手の状態を削除します。
 
-        手を画面外へ出した後、再入場時に以前の把持状態が残ることを防ぎます。
+        手を画面外へ出した後、再入場時に以前の把持中移動状態が残ることを防ぎます。
         """
 
         detected = set(detected_hand_ids)

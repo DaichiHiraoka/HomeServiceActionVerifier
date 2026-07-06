@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import argparse
+import json
 import urllib.parse
 from pathlib import Path
 from typing import NoReturn
 
 from .constants import BBox, DEFAULT_MODEL_PATH
 from .models import DetectorConfig
+
+IP_MEMORY_PATH = Path(__file__).resolve().parent.parent / "ip_memory.json"
 
 # ---------------------------------------------------------------------------
 # CLI
@@ -59,6 +62,49 @@ def _raise_source_cancelled() -> NoReturn:
     raise RuntimeError("映像入力ソースの指定がキャンセルされました。")
 
 
+def ensure_ip_memory_file(path: Path = IP_MEMORY_PATH) -> None:
+    """IP Webcam入力履歴用のローカルJSONを、なければ作成します。"""
+
+    if path.exists():
+        return
+
+    path.write_text(
+        json.dumps({"last_source": ""}, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def load_ip_memory(path: Path = IP_MEMORY_PATH) -> str:
+    """保存済みのIP Webcam入力を読み込みます。壊れたJSONは空として扱います。"""
+
+    ensure_ip_memory_file(path)
+
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return ""
+
+    if not isinstance(data, dict):
+        return ""
+
+    source = data.get("last_source", "")
+    if not isinstance(source, str):
+        return ""
+
+    return normalize_ip_webcam_source_text(source)
+
+
+def save_ip_memory(source: str, path: Path = IP_MEMORY_PATH) -> None:
+    """確定したIP Webcam入力を次回用に保存します。"""
+
+    ensure_ip_memory_file(path)
+    normalized = normalize_ip_webcam_source_text(source)
+    path.write_text(
+        json.dumps({"last_source": normalized}, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
 def prompt_ip_webcam_source_gui() -> str:
     """
     IP WebcamのIPアドレスとポートをGUIで入力します。
@@ -81,6 +127,11 @@ def prompt_ip_webcam_source_gui() -> str:
     result: dict[str, str | None] = {"source": None}
     value = tk.StringVar()
     status = tk.StringVar(value="例: 192⏎168⏎1⏎20⏎8080")
+
+    try:
+        ensure_ip_memory_file()
+    except OSError as error:
+        status.set(f"IPmemoryを作成できません: {error}")
 
     def current_text() -> str:
         return value.get().strip()
@@ -106,6 +157,11 @@ def prompt_ip_webcam_source_gui() -> str:
         if host.count(".") != 3 or not port.isdigit():
             status.set("形式は 192.168.1.20:8080 です。")
             return
+
+        try:
+            save_ip_memory(source)
+        except OSError as error:
+            print(f"IPmemoryを保存できませんでした: {error}")
 
         result["source"] = source
         root.destroy()
@@ -148,6 +204,20 @@ def prompt_ip_webcam_source_gui() -> str:
     def clear() -> None:
         _replace_entry_text("")
         status.set("入力をクリアしました。")
+
+    def load_memory() -> None:
+        try:
+            remembered_source = load_ip_memory()
+        except OSError as error:
+            status.set(f"IPmemoryを読み込めません: {error}")
+            return
+
+        if not remembered_source:
+            status.set("IPmemoryは空です。入力を開始すると確定時に保存されます。")
+            return
+
+        _replace_entry_text(remembered_source)
+        status.set("IPmemoryから入力しました。Enterまたは開始で確定できます。")
 
     def on_return(_event: object) -> str:
         insert_next_separator()
@@ -223,6 +293,14 @@ def prompt_ip_webcam_source_gui() -> str:
         columnspan=3,
         padx=3,
         pady=(3, 8),
+        sticky="ew",
+    )
+    ttk.Button(keypad, text="IPmemory", command=load_memory).grid(
+        row=5,
+        column=0,
+        columnspan=3,
+        padx=3,
+        pady=(0, 8),
         sticky="ew",
     )
 
@@ -334,7 +412,7 @@ def build_argument_parser() -> argparse.ArgumentParser:
 
     parser = argparse.ArgumentParser(
         description=(
-            "手の21点骨格と追跡物体から、物体を握っているかをリアルタイム判定します。"
+            "手の21点骨格と追跡物体から、物体を把持した状態で移動させたかをリアルタイム判定します。"
         )
     )
 
@@ -382,25 +460,25 @@ def build_argument_parser() -> argparse.ArgumentParser:
         "--enter-threshold",
         type=float,
         default=0.50,
-        help="把持開始閾値。既定値: 0.50",
+        help="把持移動開始閾値。既定値: 0.50",
     )
     parser.add_argument(
         "--exit-threshold",
         type=float,
         default=0.36,
-        help="把持解除閾値。既定値: 0.36",
+        help="把持移動解除閾値。既定値: 0.36",
     )
     parser.add_argument(
         "--enter-delay",
         type=float,
         default=0.18,
-        help="把持開始に必要な継続秒数。既定値: 0.18",
+        help="把持移動開始に必要な継続秒数。既定値: 0.18",
     )
     parser.add_argument(
         "--exit-delay",
         type=float,
         default=0.15,
-        help="把持解除に必要な継続秒数。既定値: 0.15",
+        help="把持移動解除に必要な継続秒数。既定値: 0.15",
     )
     parser.add_argument(
         "--ema-time-constant",
@@ -468,6 +546,54 @@ def build_argument_parser() -> argparse.ArgumentParser:
         type=float,
         default=0.42,
         help="手と物体が接触しているとみなす目安スコア。既定値: 0.42",
+    )
+    parser.add_argument(
+        "--object-motion-speed-threshold",
+        type=float,
+        default=60.0,
+        help="把持中の物体移動とみなす速度px/s。既定値: 60",
+    )
+    parser.add_argument(
+        "--object-motion-displacement-threshold",
+        type=float,
+        default=35.0,
+        help="把持中の物体移動とみなす初期位置からの変位px。既定値: 35",
+    )
+    parser.add_argument(
+        "--object-settle-radius-ratio",
+        type=float,
+        default=0.15,
+        help="物体静定の許容半径をbbox対角長に対する比率で指定します。既定値: 0.15",
+    )
+    parser.add_argument(
+        "--object-settle-radius-min",
+        type=float,
+        default=8.0,
+        help="物体静定の最小許容半径px。既定値: 8",
+    )
+    parser.add_argument(
+        "--object-settle-frames",
+        type=int,
+        default=15,
+        help="物体を静定済みとみなす連続フレーム数。既定値: 15",
+    )
+    parser.add_argument(
+        "--object-rebaseline-hand-distance",
+        type=float,
+        default=120.0,
+        help="手bbox中心がこの距離px以内なら再ベースラインを保留します。既定値: 120",
+    )
+    parser.add_argument(
+        "--object-vacancy-similarity-threshold",
+        type=float,
+        default=0.72,
+        help="元位置に同じ見た目が残っているとみなす類似度閾値。既定値: 0.72",
+    )
+    parser.add_argument(
+        "--object-birth-hand-distance",
+        type=float,
+        default=90.0,
+        help="手bbox近傍で新規トラック生成を抑制する距離px。既定値: 90",
     )
     parser.add_argument(
         "--object-match-threshold",
@@ -543,6 +669,8 @@ def validate_arguments(
         "--tracking-confidence": args.tracking_confidence,
         "--object-contact-threshold": args.object_contact_threshold,
         "--object-match-threshold": args.object_match_threshold,
+        "--object-settle-radius-ratio": args.object_settle_radius_ratio,
+        "--object-vacancy-similarity-threshold": args.object_vacancy_similarity_threshold,
         "--yolo-confidence": args.yolo_confidence,
         "--yolo-iou": args.yolo_iou,
     }
@@ -574,6 +702,24 @@ def validate_arguments(
     if args.object_min_area < 1.0:
         parser.error("--object-min-area は1以上で指定してください。")
 
+    if args.object_motion_speed_threshold <= 0.0:
+        parser.error("--object-motion-speed-threshold は0より大きくしてください。")
+
+    if args.object_motion_displacement_threshold <= 0.0:
+        parser.error("--object-motion-displacement-threshold は0より大きくしてください。")
+
+    if args.object_settle_radius_min < 0.0:
+        parser.error("--object-settle-radius-min は0以上で指定してください。")
+
+    if args.object_settle_frames < 1:
+        parser.error("--object-settle-frames は1以上で指定してください。")
+
+    if args.object_rebaseline_hand_distance < 0.0:
+        parser.error("--object-rebaseline-hand-distance は0以上で指定してください。")
+
+    if args.object_birth_hand_distance < 0.0:
+        parser.error("--object-birth-hand-distance は0以上で指定してください。")
+
     if args.yolo_imgsz < 32:
         parser.error("--yolo-imgsz は32以上で指定してください。")
 
@@ -603,6 +749,14 @@ def validate_arguments(
         object_max_tracks=args.max_objects,
         object_template_match_threshold=args.object_match_threshold,
         object_contact_threshold=args.object_contact_threshold,
+        object_motion_speed_threshold_px_s=args.object_motion_speed_threshold,
+        object_motion_displacement_threshold_px=args.object_motion_displacement_threshold,
+        object_settle_radius_ratio=args.object_settle_radius_ratio,
+        object_settle_radius_min_px=args.object_settle_radius_min,
+        object_settle_frames=args.object_settle_frames,
+        object_rebaseline_hand_distance_px=args.object_rebaseline_hand_distance,
+        object_vacancy_similarity_threshold=args.object_vacancy_similarity_threshold,
+        object_birth_hand_distance_px=args.object_birth_hand_distance,
         yolo_model=args.yolo_model,
         yolo_confidence=args.yolo_confidence,
         yolo_iou=args.yolo_iou,

@@ -47,7 +47,7 @@ def draw_hand_skeleton(
     """
     手の21点と接続線を描画します。
 
-    把持状態では緑、非把持状態では橙系で描画します。
+    把持中移動状態では緑、それ以外では橙系で描画します。
     """
 
     height, width = frame.shape[:2]
@@ -152,6 +152,22 @@ def draw_tracked_objects(
             2,
             cv2.LINE_AA,
         )
+        debug_label = (
+            f"S:{int(tracked_object.settled)} "
+            f"f:{tracked_object.stationary_frames} "
+            f"v:{tracked_object.vacancy_similarity:.2f} "
+            f"mv:{int(tracked_object.motion_valid)}"
+        )
+        cv2.putText(
+            frame,
+            debug_label,
+            (x, text_y + 18),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.42,
+            color,
+            1,
+            cv2.LINE_AA,
+        )
 
 
 def draw_score_bar(
@@ -165,7 +181,7 @@ def draw_score_bar(
     exit_threshold: float,
 ) -> None:
     """
-    把持スコアと開始・解除閾値を横棒で表示します。
+    把持中移動スコアと開始・解除閾値を横棒で表示します。
     """
 
     score = clamp01(score)
@@ -230,7 +246,7 @@ def draw_status_panel(
     """
 
     panel_width = min(720, frame.shape[1] - 20)
-    row_height = 128
+    row_height = 150
     panel_height = 62 + max(1, len(decisions)) * row_height
 
     # 半透明パネルを作るため、複製画像へ矩形を描いて合成します。
@@ -254,7 +270,7 @@ def draw_status_panel(
     cv2.putText(
         frame,
         (
-            f"Object-aware grip detector | FPS: {fps:5.1f} | "
+            f"Held-object movement detector | FPS: {fps:5.1f} | "
             f"objects: {len(tracked_objects)}"
         ),
         (22, 39),
@@ -281,7 +297,7 @@ def draw_status_panel(
     for row_index, decision in enumerate(decisions):
         row_top = 58 + row_index * row_height
 
-        state_text = decision.mode if decision.is_grasping else "OPEN / NO_GRASP"
+        state_text = decision.mode if decision.is_grasping else "NO_HELD_MOVE"
         state_color = (
             (70, 230, 90)
             if decision.is_grasping
@@ -320,7 +336,8 @@ def draw_status_panel(
                 f"object_raw={decision.raw_score:.3f}  "
                 f"smooth={decision.smoothed_score:.3f}  "
                 f"pose={decision.pose_score:.3f}  "
-                f"contact={decision.object_contact_score:.3f}"
+                f"contact={decision.object_contact_score:.3f}  "
+                f"motion={decision.object_motion_score:.3f}"
             ),
             (22, row_top + 73),
             cv2.FONT_HERSHEY_SIMPLEX,
@@ -334,14 +351,30 @@ def draw_status_panel(
             frame,
             (
                 f"object={decision.object_id or '-'}  "
-                f"overlap={decision.object_overlap_score:.2f}  "
-                f"tips_in={decision.object_fingertip_inside_ratio:.2f}  "
-                f"power={decision.features.power_score:.2f}  "
-                f"pinch={decision.features.pinch_score:.2f}"
+                f"speed={decision.object_speed_px_s:.1f}px/s  "
+                f"disp={decision.object_displacement_px:.1f}px  "
+                f"settled={int(decision.object_settled)}  "
+                f"motion_valid={int(decision.object_motion_valid)}"
             ),
             (22, row_top + 96),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.43,
+            (210, 210, 210),
+            1,
+            cv2.LINE_AA,
+        )
+
+        cv2.putText(
+            frame,
+            (
+                f"vacancy={decision.object_vacancy_similarity:.2f}  "
+                f"identity={decision.object_identity_similarity:.2f}  "
+                f"overlap={decision.object_overlap_score:.2f}  "
+                f"tips_in={decision.object_fingertip_inside_ratio:.2f}"
+            ),
+            (22, row_top + 118),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.40,
             (210, 210, 210),
             1,
             cv2.LINE_AA,
@@ -356,7 +389,7 @@ def draw_status_panel(
                 f"R:{decision.features.finger_curl['ring']:.2f} "
                 f"P:{decision.features.finger_curl['pinky']:.2f}"
             ),
-            (22, row_top + 118),
+            (22, row_top + 140),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.40,
             (200, 200, 200),

@@ -272,8 +272,8 @@ def main() -> int:
                         )
                     else:
                         object_evidence = ObjectEvidence()
-                        object_raw_score = features.raw_score
-                        raw_mode = features.raw_mode
+                        object_raw_score = 0.0
+                        raw_mode = "NO_OBJECT_TRACKING"
 
                     temporal_state = temporal_filter.update(
                         hand_id=hand_id,
@@ -294,6 +294,13 @@ def main() -> int:
                         object_id=object_evidence.object_id,
                         object_bbox=object_evidence.bbox,
                         object_contact_score=object_evidence.contact_score,
+                        object_motion_score=object_evidence.motion_score,
+                        object_speed_px_s=object_evidence.speed_px_s,
+                        object_displacement_px=object_evidence.displacement_px,
+                        object_settled=object_evidence.settled,
+                        object_vacancy_similarity=object_evidence.vacancy_similarity,
+                        object_identity_similarity=object_evidence.identity_similarity,
+                        object_motion_valid=object_evidence.motion_valid,
                         object_overlap_score=object_evidence.overlap_score,
                         object_fingertip_inside_ratio=object_evidence.fingertip_inside_ratio,
                         features=features,

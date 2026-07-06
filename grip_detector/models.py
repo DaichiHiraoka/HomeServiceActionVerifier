@@ -74,7 +74,16 @@ class TrackedObject:
     age_frames: int = 1
     missed_frames: int = 0
     velocity: Tuple[float, float] = (0.0, 0.0)
+    initial_bbox: Optional[BBox] = None
     template: Optional["np.ndarray"] = None
+    initial_template: Optional["np.ndarray"] = None
+    anchor_center: Optional[Tuple[float, float]] = None
+    stationary_frames: int = 0
+    settled: bool = False
+    rebaseline_pending: bool = False
+    vacancy_similarity: float = 0.0
+    identity_similarity: float = 0.0
+    motion_valid: bool = True
     label: str = ""
 
 
@@ -97,6 +106,13 @@ class ObjectEvidence:
     object_id: str = ""
     bbox: Optional[BBox] = None
     contact_score: float = 0.0
+    motion_score: float = 0.0
+    speed_px_s: float = 0.0
+    displacement_px: float = 0.0
+    settled: bool = False
+    vacancy_similarity: float = 0.0
+    identity_similarity: float = 0.0
+    motion_valid: bool = True
     overlap_score: float = 0.0
     fingertip_inside_ratio: float = 0.0
     proximity_score: float = 0.0
@@ -107,23 +123,23 @@ class TemporalGripState:
     """
     時系列判定の内部状態です。
 
-    1フレームだけスコアが閾値を超えても、即座には把持にしません。
+    1フレームだけスコアが閾値を超えても、即座には把持中移動にしません。
     一定時間継続した場合だけ状態遷移させます。
     """
 
-    # EMAで平滑化した把持スコア
+    # EMAで平滑化した把持中移動スコア
     smoothed_score: float = 0.0
 
-    # 現在、把持状態として確定しているか
+    # 現在、把持中移動状態として確定しているか
     is_grasping: bool = False
 
-    # 現在確定している把持方式
+    # 現在確定している把持中移動方式
     mode: str = "NONE"
 
-    # 把持候補が始まった時刻
+    # 把持中移動候補が始まった時刻
     enter_candidate_since: Optional[float] = None
 
-    # 解除候補が始まった時刻
+    # 把持中移動解除候補が始まった時刻
     exit_candidate_since: Optional[float] = None
 
     # 最後にこの手を検出した時刻
@@ -150,6 +166,13 @@ class GripDecision:
     object_id: str
     object_bbox: Optional[BBox]
     object_contact_score: float
+    object_motion_score: float
+    object_speed_px_s: float
+    object_displacement_px: float
+    object_settled: bool
+    object_vacancy_similarity: float
+    object_identity_similarity: float
+    object_motion_valid: bool
     object_overlap_score: float
     object_fingertip_inside_ratio: float
     features: GripFeatures
@@ -163,10 +186,10 @@ class DetectorConfig:
     CLI引数から変更できるため、実験データに基づく閾値調整が可能です。
     """
 
-    # 把持開始と判定する平滑化スコア
+    # 把持中移動開始と判定する平滑化スコア
     enter_threshold: float = 0.50
 
-    # 把持解除と判定する平滑化スコア
+    # 把持中移動解除と判定する平滑化スコア
     exit_threshold: float = 0.36
 
     # 開始閾値を超え続ける必要時間
@@ -201,7 +224,7 @@ class DetectorConfig:
     object_max_tracks: int = 6
 
     # 検出できないフレームが続いた物体を削除するまでの猶予
-    object_max_missed_frames: int = 24
+    object_max_missed_frames: int = 48
 
     # 物体IDのフレーム間対応付けに使う距離上限
     object_association_distance_px: float = 110.0
@@ -222,6 +245,22 @@ class DetectorConfig:
 
     # 手と物体が接触しているとみなすスコア目安
     object_contact_threshold: float = 0.42
+
+    # 物体を把持中に移動させたとみなす速度・変位の目安
+    object_motion_speed_threshold_px_s: float = 60.0
+    object_motion_displacement_threshold_px: float = 35.0
+
+    # 静定判定と再ベースライン
+    object_settle_radius_ratio: float = 0.15
+    object_settle_radius_min_px: float = 8.0
+    object_settle_frames: int = 15
+    object_rebaseline_hand_distance_px: float = 120.0
+
+    # 元位置に同じ見た目が残っている場合は偽移動として拒否
+    object_vacancy_similarity_threshold: float = 0.72
+
+    # 手近傍での新規幽霊トラック生成抑制
+    object_birth_hand_distance_px: float = 90.0
 
     # YOLO設定
     yolo_model: str = "yolo11n.pt"

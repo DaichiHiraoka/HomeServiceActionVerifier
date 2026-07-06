@@ -37,6 +37,7 @@ ENV/
 htmlcov/
 
 outputs/
+ip_memory.json
 *.mp4
 *.mov
 *.avi
